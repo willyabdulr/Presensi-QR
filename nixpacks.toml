@@ -13,12 +13,20 @@ nixPkgs = [
     "php83Extensions.json",
     "php83Extensions.bcmath",
     "php83Extensions.curl",
-    "composer"
+    "composer",
+    "nginx",
+    "php83-fpm"
 ]
 
 [phases.install]
 cmds = [
     "composer install --no-dev --optimize-autoloader --no-interaction"
+]
+
+[phases.build]
+cmds = [
+    "mkdir -p storage/logs storage/framework/views storage/framework/sessions storage/framework/cache",
+    "chmod -R 777 storage bootstrap/cache"
 ]
 
 [start]

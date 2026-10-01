@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Pastikan folder storage ada dan beri izin akses penuh saat runtime
+mkdir -p storage/logs storage/framework/views storage/framework/sessions storage/framework/cache
+
 # 1. Beri izin akses folder storage & cache (mencegah Permission Denied)
 chmod -R 777 storage bootstrap/cache
 

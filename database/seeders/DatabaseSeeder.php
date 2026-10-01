@@ -26,6 +26,36 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@unpam.ac.id'],
+            [
+                'name' => 'Admin Kampus',
+                'role' => 'admin',
+                'nomor_induk' => '142555781123',
+                'password' => Hash::make('Admin1@11'),
+            ]
+        );
+
+        $dosen = User::updateOrCreate(
+            ['email' => 'willy04@gmail.ac.id'],
+            [
+                'name' => 'Willy Abdul',
+                'role' => 'mahasiswa',
+                'nim' => '241011700486',
+                'password' => Hash::make('Abdulr13'),
+            ]
+        );
+
+        $mahasiswa = User::updateOrCreate(
+            ['email' => 'dosen@kampus.ac.id'],
+            [
+                'name' => 'Dr. Ir. Hendra Wijaya, M.T.',
+                'role' => 'dosen',
+                'nomor_induk' => '198005122005011002',
+                'password' => Hash::make('password'),
+            ]
+        );
+
         // 2. Akun Mahasiswa
         $mahasiswaList = [
             ['name' => 'Budi Santoso', 'nomor_induk' => '220101001', 'email' => 'budi@kampus.ac.id'],

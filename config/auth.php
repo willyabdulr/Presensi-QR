@@ -42,6 +42,18 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+        'dosen' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+        'mahasiswa' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*
@@ -113,5 +125,7 @@ return [
     */
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
+
+    'admin_registration_key' => env('ADMIN_REGISTRATION_KEY'),
 
 ];

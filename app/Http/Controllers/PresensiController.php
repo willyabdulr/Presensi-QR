@@ -7,12 +7,46 @@ use App\Models\Presensi;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class PresensiController extends Controller
 {
     public function scanPage()
     {
         return view('mahasiswa.scan');
+    }
+
+    public function dashboard(): View
+    {
+        $mahasiswaId = auth('mahasiswa')->id();
+        $weekStart = now()->startOfWeek();
+        $weekEnd = $weekStart->copy()->endOfWeek();
+
+        $attendanceQuery = Presensi::query()
+            ->where('mahasiswa_id', $mahasiswaId)
+            ->where('status', 'Hadir');
+
+        $stats = [
+            'total' => (clone $attendanceQuery)->count(),
+            'minggu_ini' => (clone $attendanceQuery)->whereBetween('waktu_presensi', [$weekStart, $weekEnd])->count(),
+            'mata_kuliah' => DB::table('presensi')
+                ->join('pertemuan', 'presensi.pertemuan_id', '=', 'pertemuan.id')
+                ->join('jadwal_kuliah', 'pertemuan.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
+                ->where('presensi.mahasiswa_id', $mahasiswaId)
+                ->where('presensi.status', 'Hadir')
+                ->distinct()
+                ->count('jadwal_kuliah.mata_kuliah_id'),
+        ];
+
+        $recentPresensi = Presensi::query()
+            ->with(['pertemuan.jadwalKuliah.mataKuliah', 'pertemuan.jadwalKuliah.dosen'])
+            ->where('mahasiswa_id', $mahasiswaId)
+            ->latest('waktu_presensi')
+            ->limit(6)
+            ->get();
+
+        return view('mahasiswa.dashboard', compact('stats', 'recentPresensi'));
     }
 
     public function riwayat()
@@ -68,8 +102,8 @@ class PresensiController extends Controller
         if ($existingPresensi) {
             return response()->json([
                 'status' => 'warning',
-                'message' => 'Anda sudah melakukan presensi pada pertemuan ini pada ' .
-                    $existingPresensi->waktu_presensi->format('H:i:s') . ' WIB.',
+                'message' => 'Anda sudah melakukan presensi pada pertemuan ini pada '.
+                    $existingPresensi->waktu_presensi->format('H:i:s').' WIB.',
             ], 409);
         }
 
@@ -127,6 +161,7 @@ class PresensiController extends Controller
             sin($lonDelta / 2) * sin($lonDelta / 2);
 
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
         return $earthRadius * $c;
     }
 }

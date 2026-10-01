@@ -1,91 +1,93 @@
 @extends('layouts.app')
 
-@section('title', 'Login - Presensi QR & Geolokasi')
+@php
+    $activeRole = $role ?? 'mahasiswa';
+    $roleColors = [
+        'mahasiswa' => 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-200',
+        'dosen' => 'bg-violet-600 hover:bg-violet-700 focus:ring-violet-200',
+        'admin' => 'bg-teal-700 hover:bg-teal-800 focus:ring-teal-200',
+    ];
+    $identityField = $activeRole === 'admin' ? 'email' : 'nomor_induk';
+    $identityLabel = match ($activeRole) {
+        'dosen' => 'NID / NIP',
+        'mahasiswa' => 'NIM',
+        default => 'Email Admin',
+    };
+    $identityPlaceholder = match ($activeRole) {
+        'dosen' => 'Masukkan NID atau NIP',
+        'mahasiswa' => 'Masukkan NIM',
+        default => 'admin@kampus.ac.id',
+    };
+@endphp
+
+@section('title', 'Masuk '.ucfirst($activeRole))
 
 @section('content')
-<div class="max-w-md mx-auto my-8">
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-8">
-        <div class="text-center mb-8">
-            <div class="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl mx-auto shadow-lg shadow-indigo-200 mb-3">
-                <i class="fa-solid fa-lock"></i>
-            </div>
-            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Selamat Datang</h1>
-            <p class="text-xs text-slate-500 mt-1">Masuk ke Sistem Presensi QR Dinamis & Geolokasi</p>
-        </div>
-
-        @if($errors->any())
-            <div class="mb-5 bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl">
-                <i class="fa-solid fa-circle-exclamation mr-1"></i> {{ $errors->first() }}
-            </div>
-        @endif
-
-        <form method="POST" action="{{ route('login.post') }}" class="space-y-4">
-            @csrf
-            <div>
-                <label for="email" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email</label>
-                <input type="email" id="email" name="email" value="{{ old('email') }}" required autofocus
-                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition"
-                    placeholder="nama@kampus.ac.id">
-            </div>
-
-            <div>
-                <label for="password" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password</label>
-                <input type="password" id="password" name="password" required
-                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition"
-                    placeholder="••••••••">
-            </div>
-
-            <div class="flex items-center justify-between text-xs">
-                <label class="flex items-center text-slate-600">
-                    <input type="checkbox" name="remember" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 mr-2">
-                    Ingat saya
-                </label>
-                <span class="text-slate-400">Password: <code class="font-mono text-indigo-600 font-bold">password</code></span>
-            </div>
-
-            <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-100 transition">
-                Masuk Sekarang
-            </button>
-        </form>
-
-        <div class="mt-8 pt-6 border-t border-slate-100">
-            <span class="text-xs text-slate-400 block mb-3 font-semibold uppercase tracking-wider text-center">Demo / Quick Login:</span>
-            
-            <div class="grid grid-cols-2 gap-2 mb-3">
-                <a href="{{ route('quick-login', 'dosen') }}" class="py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition border border-indigo-200 flex items-center justify-center text-center">
-                    <i class="fa-solid fa-chalkboard-user mr-1.5"></i> Login Dosen
-                </a>
-                <a href="{{ route('quick-login', 'mahasiswa') }}" class="py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl transition border border-emerald-200 flex items-center justify-center text-center">
-                    <i class="fa-solid fa-user-graduate mr-1.5"></i> Mhs (Budi)
-                </a>
-            </div>
-
-            @if(isset($daftarMahasiswa) && $daftarMahasiswa->isNotEmpty())
-                <details class="group bg-slate-50 rounded-2xl border border-slate-200/80 p-3 text-xs transition">
-                    <summary class="font-bold text-slate-700 hover:text-indigo-600 cursor-pointer flex items-center justify-between list-none">
-                        <span class="flex items-center">
-                            <i class="fa-solid fa-users text-indigo-500 mr-2"></i>
-                            Pilih Mahasiswa Lain ({{ $daftarMahasiswa->count() }} Terdaftar)
-                        </span>
-                        <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition-transform"></i>
-                    </summary>
-
-                    <div class="mt-3 pt-2 border-t border-slate-200/60 max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                        @foreach($daftarMahasiswa as $mhs)
-                            <a href="{{ route('quick-login', $mhs->id) }}" class="flex items-center justify-between p-2 rounded-xl bg-white hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 transition text-slate-700 hover:text-emerald-700">
-                                <div>
-                                    <div class="font-bold text-[11px]">{{ $mhs->name }}</div>
-                                    <div class="text-[10px] text-slate-400 font-mono">{{ $mhs->nomor_induk }} &bull; {{ $mhs->email }}</div>
-                                </div>
-                                <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
-                                    Login <i class="fa-solid fa-arrow-right ml-0.5"></i>
-                                </span>
-                            </a>
-                        @endforeach
-                    </div>
-                </details>
-            @endif
-        </div>
+<section class="mx-auto my-4 w-full max-w-md rounded-md border border-blue-100 bg-white p-6 shadow-sm sm:my-8 sm:p-8">
+    <div class="mb-6 text-center">
+        <span class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-md bg-[#17385f] text-2xl text-white">
+            <i class="fa-solid fa-graduation-cap"></i>
+        </span>
+        <h1 class="text-2xl font-extrabold text-[#17385f]">EduAttend</h1>
+        <p class="mt-1 text-sm text-slate-500">Sistem Absensi Perkuliahan</p>
     </div>
-</div>
+
+    <div class="mb-6 grid grid-cols-3 gap-1 rounded-md bg-slate-100 p-1" aria-label="Pilih role">
+        @foreach(['mahasiswa' => 'Mahasiswa', 'dosen' => 'Dosen', 'admin' => 'Admin'] as $value => $label)
+            <a href="{{ route('login.role', $value) }}" @class([
+                'flex min-h-10 items-center justify-center gap-1.5 rounded px-2 text-xs font-semibold sm:text-sm',
+                'bg-white text-[#17385f] shadow-sm' => $activeRole === $value,
+                'text-slate-500 hover:text-slate-800' => $activeRole !== $value,
+            ]) @if($activeRole === $value) aria-current="page" @endif>
+                {{ $label }}
+            </a>
+        @endforeach
+    </div>
+
+    <div class="mb-5">
+        <h2 class="text-lg font-bold text-slate-900">Masuk {{ ucfirst($activeRole) }}</h2>
+        <p class="mt-1 text-xs text-slate-500">Masuk dengan {{ $identityLabel }} yang terdaftar.</p>
+    </div>
+
+    @if($errors->any())
+        <div class="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700" role="alert">
+            <i class="fa-solid fa-circle-exclamation mr-1.5"></i>{{ $errors->first() }}
+        </div>
+    @endif
+
+    <form method="POST" action="{{ route('login.post', $activeRole) }}" class="space-y-4">
+        @csrf
+        <div>
+            <label for="{{ $identityField }}" class="mb-1.5 block text-xs font-semibold text-slate-700">{{ $identityLabel }}</label>
+            <input type="{{ $identityField === 'email' ? 'email' : 'text' }}" id="{{ $identityField }}" name="{{ $identityField }}" value="{{ old($identityField) }}" required autofocus autocomplete="username"
+                class="w-full rounded-md border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                placeholder="{{ $identityPlaceholder }}">
+        </div>
+
+        <div>
+            <label for="password" class="mb-1.5 block text-xs font-semibold text-slate-700">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password"
+                class="w-full rounded-md border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                placeholder="Masukkan password">
+        </div>
+
+        <label class="flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" name="remember" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+            Ingat saya
+        </label>
+
+        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-bold text-white focus:outline-none focus:ring-4 {{ $roleColors[$activeRole] }}">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk
+        </button>
+    </form>
+
+    @if($activeRole === 'admin')
+        <p class="mt-5 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">Akun admin dibuat oleh pengelola sistem.</p>
+    @else
+        <p class="mt-5 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">
+            Belum punya akun?
+            <a href="{{ route('register.role', $activeRole) }}" class="font-semibold text-blue-700 hover:text-blue-900">Daftar {{ $activeRole }}</a>
+        </p>
+    @endif
+</section>
 @endsection

@@ -9,19 +9,92 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DosenPertemuanController extends Controller
 {
-    public function index()
+    public function index(): View
     {
         $dosenId = auth()->id();
         $jadwalList = JadwalKuliah::with(['mataKuliah', 'pertemuan.presensi'])
             ->where('dosen_id', $dosenId)
             ->get();
 
-        return view('dosen.dashboard', compact('jadwalList'));
+        $stats = [
+            'kelas' => $jadwalList->count(),
+            'pertemuan' => $jadwalList->sum(fn (JadwalKuliah $jadwal): int => $jadwal->pertemuan->count()),
+            'hadir' => $jadwalList->sum(fn (JadwalKuliah $jadwal): int => $jadwal->pertemuan
+                ->sum(fn (Pertemuan $pertemuan): int => $pertemuan->presensi->where('status', 'Hadir')->count())),
+        ];
+
+        return view('dosen.dashboard', compact('jadwalList', 'stats'));
+    }
+
+    public function rekapAbsensi(): View
+    {
+        $jadwalList = JadwalKuliah::query()
+            ->where('dosen_id', auth('dosen')->id())
+            ->with([
+                'mataKuliah',
+                'pertemuan' => fn ($query) => $query->orderBy('pertemuan_ke'),
+                'pertemuan.presensi.mahasiswa',
+            ])
+            ->orderBy('hari')
+            ->orderBy('jam_mulai')
+            ->get();
+
+        /** @var Collection<int, array{jadwal: JadwalKuliah, pertemuan: Collection<int, Pertemuan>, rows: Collection<int, array{mahasiswa: User, statuses: array<int, string|null>, total_hadir: int, persentase: float}>}> $reports */
+        $reports = $jadwalList->map(function (JadwalKuliah $jadwal): array {
+            $pertemuanList = $jadwal->pertemuan;
+            $mahasiswaList = $pertemuanList
+                ->flatMap(fn (Pertemuan $pertemuan): Collection => $pertemuan->presensi->pluck('mahasiswa'))
+                ->filter()
+                ->unique('id')
+                ->sortBy('nomor_induk')
+                ->values();
+
+            $rows = $mahasiswaList->map(function (User $mahasiswa) use ($pertemuanList): array {
+                $statuses = [];
+                $totalHadir = 0;
+
+                foreach ($pertemuanList as $pertemuan) {
+                    $presensi = $pertemuan->presensi->firstWhere('mahasiswa_id', $mahasiswa->id);
+                    $statuses[$pertemuan->id] = $presensi?->status;
+
+                    if ($presensi?->status === 'Hadir') {
+                        $totalHadir++;
+                    }
+                }
+
+                return [
+                    'mahasiswa' => $mahasiswa,
+                    'statuses' => $statuses,
+                    'total_hadir' => $totalHadir,
+                    'persentase' => $pertemuanList->isNotEmpty()
+                        ? round(($totalHadir / $pertemuanList->count()) * 100, 1)
+                        : 0.0,
+                ];
+            });
+
+            return [
+                'jadwal' => $jadwal,
+                'pertemuan' => $pertemuanList,
+                'rows' => $rows,
+            ];
+        });
+
+        $stats = [
+            'kelas' => $reports->count(),
+            'pertemuan' => $reports->sum(fn (array $report): int => $report['pertemuan']->count()),
+            'hadir' => $reports->sum(fn (array $report): int => $report['rows']->sum(
+                fn (array $row): int => $row['total_hadir']
+            )),
+        ];
+
+        return view('dosen.attendance', compact('reports', 'stats'));
     }
 
     public function showQr(Pertemuan $pertemuan)
@@ -81,7 +154,7 @@ class DosenPertemuanController extends Controller
                 'waktu_presensi' => $item->waktu_presensi ? $item->waktu_presensi->format('H:i:s') : '-',
                 'latitude' => $item->latitude_mahasiswa,
                 'longitude' => $item->longitude_mahasiswa,
-                'jarak_meter' => $item->jarak_meter !== null ? round($item->jarak_meter, 1) . ' m' : '-',
+                'jarak_meter' => $item->jarak_meter !== null ? round($item->jarak_meter, 1).' m' : '-',
             ];
         });
 
@@ -119,18 +192,18 @@ class DosenPertemuanController extends Controller
 
         return response()->streamDownload(function () use ($jadwalKuliah, $pertemuanList, $mahasiswaList, $totalPertemuan) {
             $output = fopen('php://output', 'w');
-            fputs($output, "\xEF\xBB\xBF");
+            fwrite($output, "\xEF\xBB\xBF");
 
             fputcsv($output, ['REKAP PRESENSI KULIAH']);
             fputcsv($output, ['Mata Kuliah', $jadwalKuliah->mataKuliah->nama_mk ?? '-']);
             fputcsv($output, ['Kode MK', $jadwalKuliah->mataKuliah->kode_mk ?? '-']);
             fputcsv($output, ['Dosen Pengampu', auth()->user()->name]);
-            fputcsv($output, ['Jadwal', $jadwalKuliah->hari . ', ' . $jadwalKuliah->jam_mulai . ' - ' . $jadwalKuliah->jam_selesai]);
+            fputcsv($output, ['Jadwal', $jadwalKuliah->hari.', '.$jadwalKuliah->jam_mulai.' - '.$jadwalKuliah->jam_selesai]);
             fputcsv($output, []);
 
             $headerColumns = ['No', 'NIM / Nomor Induk', 'Nama Mahasiswa'];
             foreach ($pertemuanList as $p) {
-                $headerColumns[] = 'P-' . $p->pertemuan_ke;
+                $headerColumns[] = 'P-'.$p->pertemuan_ke;
             }
             $headerColumns[] = 'Total Hadir';
             $headerColumns[] = 'Persentase (%)';
@@ -150,7 +223,7 @@ class DosenPertemuanController extends Controller
                     }
                 }
 
-                $persentase = $totalPertemuan > 0 ? round(($hadirCount / $totalPertemuan) * 100, 1) . '%' : '0%';
+                $persentase = $totalPertemuan > 0 ? round(($hadirCount / $totalPertemuan) * 100, 1).'%' : '0%';
                 $row[] = $hadirCount;
                 $row[] = $persentase;
                 fputcsv($output, $row);

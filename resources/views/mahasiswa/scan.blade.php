@@ -3,13 +3,13 @@
 @section('title', 'Scan QR Presensi Mahasiswa')
 
 @section('content')
-<div class="max-w-xl mx-auto">
-    <div class="text-center mb-6">
-        <h1 class="text-2xl font-black text-slate-900 tracking-tight">Presensi Mahasiswa</h1>
-        <p class="text-sm text-slate-500 mt-1">Verifikasi kehadiran melalui QR Code Dinamis dan Geolokasi GPS</p>
+<div class="mx-auto max-w-2xl space-y-4">
+    <div class="mb-5 border-b border-slate-200 pb-4">
+        <h1 class="text-2xl font-bold text-[#17385f]">Scan Absensi</h1>
+        <p class="mt-1 text-sm text-slate-500">Verifikasi kehadiran melalui QR code dan geolokasi.</p>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-5 transition-all" id="gpsCard">
+    <div class="rounded-md border border-slate-200 bg-white p-4 transition-all sm:p-5" id="gpsCard">
         <div class="flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <div id="gpsIconContainer" class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-lg">
@@ -41,10 +41,10 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+    <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
         <div class="p-4 border-b border-slate-100 flex items-center justify-between">
             <h2 class="text-sm font-bold text-slate-800 flex items-center">
-                <i class="fa-solid fa-camera mr-2 text-indigo-600"></i> Kamera Scanner QR
+                <i class="fa-solid fa-camera mr-2 text-blue-600"></i> Kamera Scanner QR
             </h2>
             <span id="scannerStatusBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                 Menunggu GPS...
@@ -52,7 +52,7 @@
         </div>
 
         <div class="p-4 flex flex-col items-center">
-            <div id="scannerWrapper" class="w-full max-w-sm rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-900 relative min-h-[300px] flex items-center justify-center">
+            <div id="scannerWrapper" class="relative flex min-h-[300px] w-full max-w-sm items-center justify-center overflow-hidden rounded-md border-2 border-slate-200 bg-slate-900">
                 <div id="reader" class="w-full"></div>
 
                 <div id="scannerOverlayWaitingGps" class="absolute inset-0 bg-slate-900/90 text-white flex flex-col items-center justify-center p-6 text-center z-10">
@@ -77,7 +77,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 text-xs">
+    <div class="rounded-md border border-slate-200 bg-white p-4 text-xs">
         <details class="cursor-pointer group">
             <summary class="font-bold text-slate-700 hover:text-indigo-600 flex items-center justify-between">
                 <span><i class="fa-solid fa-keyboard mr-1.5 text-slate-400"></i> Kamera bermasalah? Masukkan Token Manual</span>

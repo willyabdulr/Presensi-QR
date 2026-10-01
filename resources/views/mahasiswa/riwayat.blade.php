@@ -10,17 +10,17 @@
     </div>
 
     <div>
-        <a href="{{ route('mahasiswa.scan') }}" class="inline-flex items-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow transition">
+        <a href="{{ route('mahasiswa.scan') }}" class="inline-flex min-h-10 items-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
             <i class="fa-solid fa-camera mr-2"></i> Buka Scanner Presensi
         </a>
     </div>
 </div>
 
-<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+<div class="overflow-hidden rounded-md border border-slate-200 bg-white">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
             <thead>
-                <tr class="text-xs font-semibold text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
+                <tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
                     <th class="py-3 px-4">No</th>
                     <th class="py-3 px-4">Mata Kuliah</th>
                     <th class="py-3 px-4">Pertemuan</th>
@@ -32,7 +32,7 @@
             </thead>
             <tbody class="divide-y divide-slate-100">
                 @forelse($riwayatPresensi as $index => $item)
-                    <tr class="hover:bg-slate-50 transition">
+                    <tr class="transition hover:bg-blue-50/40">
                         <td class="py-3.5 px-4 text-xs text-slate-400">{{ $riwayatPresensi->firstItem() + $index }}</td>
                         <td class="py-3.5 px-4">
                             <div class="font-bold text-slate-900">{{ $item->pertemuan->jadwalKuliah->mataKuliah->nama_mk ?? '-' }}</div>
@@ -43,7 +43,7 @@
                         <td class="py-3.5 px-4 text-xs font-mono text-slate-600">{{ $item->waktu_presensi ? $item->waktu_presensi->format('d/m/Y H:i:s') : '-' }} WIB</td>
                         <td class="py-3.5 px-4 text-xs font-mono text-slate-700">{{ $item->jarak_meter !== null ? round($item->jarak_meter, 1) . ' m' : '-' }}</td>
                         <td class="py-3.5 px-4 text-center">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                            <span class="inline-flex items-center rounded px-2.5 py-1 text-xs font-bold bg-emerald-100 text-emerald-800">
                                 <i class="fa-solid fa-check text-[10px] mr-1"></i> {{ $item->status }}
                             </span>
                         </td>

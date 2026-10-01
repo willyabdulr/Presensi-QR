@@ -16,9 +16,13 @@ class PresensiTest extends TestCase
     use RefreshDatabase;
 
     protected $dosen;
+
     protected $mahasiswa;
+
     protected $mataKuliah;
+
     protected $jadwal;
+
     protected $pertemuan;
 
     protected function setUp(): void
@@ -62,7 +66,7 @@ class PresensiTest extends TestCase
 
     public function test_mahasiswa_berhasil_presensi_didalam_radius(): void
     {
-        $response = $this->actingAs($this->mahasiswa)->postJson(route('mahasiswa.presensi.store'), [
+        $response = $this->actingAs($this->mahasiswa, 'mahasiswa')->postJson(route('mahasiswa.presensi.store'), [
             'qr_token' => $this->pertemuan->qr_token,
             'latitude' => -6.17545000,
             'longitude' => 106.82715280,
@@ -82,7 +86,7 @@ class PresensiTest extends TestCase
 
     public function test_mahasiswa_gagal_presensi_jika_diluar_radius(): void
     {
-        $response = $this->actingAs($this->mahasiswa)->postJson(route('mahasiswa.presensi.store'), [
+        $response = $this->actingAs($this->mahasiswa, 'mahasiswa')->postJson(route('mahasiswa.presensi.store'), [
             'qr_token' => $this->pertemuan->qr_token,
             'latitude' => -6.917464,
             'longitude' => 107.619123,
@@ -100,7 +104,7 @@ class PresensiTest extends TestCase
             'qr_expires_at' => Carbon::now()->subMinutes(1),
         ]);
 
-        $response = $this->actingAs($this->mahasiswa)->postJson(route('mahasiswa.presensi.store'), [
+        $response = $this->actingAs($this->mahasiswa, 'mahasiswa')->postJson(route('mahasiswa.presensi.store'), [
             'qr_token' => $this->pertemuan->qr_token,
             'latitude' => -6.17539240,
             'longitude' => 106.82715280,
@@ -114,7 +118,7 @@ class PresensiTest extends TestCase
 
     public function test_dosen_bisa_regenerate_qr_code_20_menit(): void
     {
-        $response = $this->actingAs($this->dosen)->postJson(route('dosen.pertemuan.regenerate_qr', $this->pertemuan->id));
+        $response = $this->actingAs($this->dosen, 'dosen')->postJson(route('dosen.pertemuan.regenerate_qr', $this->pertemuan->id));
 
         $response->assertStatus(200)
             ->assertJson([
@@ -128,8 +132,7 @@ class PresensiTest extends TestCase
 
     public function test_mahasiswa_tidak_dapat_mengakses_halaman_dosen(): void
     {
-        $response = $this->actingAs($this->mahasiswa)->get(route('dosen.dashboard'));
-        $response->assertStatus(403);
+        $response = $this->actingAs($this->mahasiswa, 'mahasiswa')->get(route('dosen.dashboard'));
+        $response->assertRedirect(route('login'));
     }
 }
-

@@ -11,8 +11,9 @@ RUN apk add --no-cache \
     oniguruma-dev \
     icu-dev \
     linux-headers \
+    postgresql-dev \
     $PHPIZE_DEPS \
-    && docker-php-ext-install pdo pdo_mysql mbstring bcmath opcache pcntl
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql pgsql mbstring bcmath opcache pcntl
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

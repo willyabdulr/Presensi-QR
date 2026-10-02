@@ -29,7 +29,8 @@ class ProfilePhotoTest extends TestCase
             $this->actingAs($user, $role)
                 ->get(route($role.'.profile.edit'))
                 ->assertOk()
-                ->assertSee('Foto profil');
+                ->assertSee('Foto profil')
+                ->assertSee('profile-photo-fallback');
 
             $payload = [
                 'name' => 'Profil '.ucfirst($role),
@@ -48,15 +49,20 @@ class ProfilePhotoTest extends TestCase
 
             $this->assertSame('Profil '.ucfirst($role), $user->name);
             $this->assertNotNull($user->profile_photo_path);
+            $this->assertStringStartsWith('profile-photos/', $user->profile_photo_path);
             $this->assertDatabaseHas('users', [
                 'id' => $user->id,
                 'profile_photo_path' => $user->profile_photo_path,
             ]);
             Storage::disk('public')->assertExists($user->profile_photo_path);
 
+            $this->get(route($role.'.profile.edit'))
+                ->assertOk()
+                ->assertSee(asset('storage/'.$user->profile_photo_path), false);
+
             $this->get(route($role.'.profile'))
                 ->assertOk()
-                ->assertSee(Storage::disk('public')->url($user->profile_photo_path), false);
+                ->assertSee(asset('storage/'.$user->profile_photo_path), false);
         }
     }
 

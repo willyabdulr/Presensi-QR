@@ -76,7 +76,7 @@
                     </div>
                     <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-600" aria-hidden="true">
                         @if($authenticatedUser->profile_photo_path)
-                            <img src="{{ Storage::disk('public')->url($authenticatedUser->profile_photo_path) }}" alt="" class="h-full w-full object-cover">
+                            <img src="{{ asset('storage/' . $authenticatedUser->profile_photo_path) }}" alt="" class="h-full w-full object-cover">
                         @else
                             <i class="fa-solid {{ $roleStyle['icon'] }}"></i>
                         @endif
@@ -130,7 +130,7 @@
                     <div class="flex items-center gap-3">
                         <span class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-white/10 text-lg text-white">
                             @if($authenticatedUser->profile_photo_path)
-                                <img src="{{ Storage::disk('public')->url($authenticatedUser->profile_photo_path) }}" alt="" class="h-full w-full object-cover">
+                                <img src="{{ asset('storage/' . $authenticatedUser->profile_photo_path) }}" alt="" class="h-full w-full object-cover">
                             @else
                                 <i class="fa-solid {{ $roleStyle['icon'] }}"></i>
                             @endif

@@ -28,6 +28,8 @@ class AcademicManagementTest extends TestCase
             ->get(route('admin.courses'))
             ->assertOk()
             ->assertSeeText('Buat Jadwal & Tugaskan Dosen')
+            ->assertSeeText('Dosen pengganti')
+            ->assertSeeText('Catatan dosen pengganti')
             ->assertSee($lecturer->name);
 
         $this->post(route('admin.courses.store'), [
@@ -47,13 +49,22 @@ class AcademicManagementTest extends TestCase
             'latitude_kelas' => '-6.20000000',
             'longitude_kelas' => '106.80000000',
             'radius_meter' => 50,
+            'is_substitute' => true,
+            'substitute_note' => 'Menggantikan dosen berhalangan hadir.',
         ])->assertRedirect(route('admin.courses'));
 
         $this->assertDatabaseHas('jadwal_kuliah', [
             'dosen_id' => $lecturer->id,
             'mata_kuliah_id' => $course->id,
             'hari' => 'Senin',
+            'is_substitute' => true,
+            'substitute_note' => 'Menggantikan dosen berhalangan hadir.',
         ]);
+
+        $this->get(route('admin.courses'))
+            ->assertOk()
+            ->assertSeeText('(Pengganti)')
+            ->assertSeeText('Menggantikan dosen berhalangan hadir.');
 
         $this->actingAs($lecturer, 'dosen')
             ->get(route('dosen.dashboard'))

@@ -19,7 +19,7 @@
     <div class="flex flex-col gap-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-white px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div class="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
             @if($user->profile_photo_path)
-                <img src="{{ Storage::disk('public')->url($user->profile_photo_path) }}" alt="Foto profil {{ $user->name }}" class="h-16 w-16 rounded-full border border-slate-200 object-cover">
+                <img src="{{ asset('storage/' . $user->profile_photo_path) }}" alt="Foto profil {{ $user->name }}" class="h-16 w-16 rounded-full border border-slate-200 object-cover">
             @else
                 <span class="flex h-16 w-16 items-center justify-center rounded-full bg-[#17385f] text-2xl text-white">
                     <i class="fa-solid {{ $profileIcon }}"></i>

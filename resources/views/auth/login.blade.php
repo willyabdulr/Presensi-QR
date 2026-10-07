@@ -50,10 +50,10 @@
     <form method="POST" action="{{ $activeRole ? route('login.post', $activeRole) : route('login.authenticate') }}" class="space-y-4">
         @csrf
         <div>
-            <label for="{{ $identityField }}" class="mb-1.5 block text-xs font-semibold text-slate-700">{{ $identityLabel }}</label>
-            <input type="{{ $identityField === 'email' ? 'email' : 'text' }}" id="{{ $identityField }}" name="{{ $identityField }}" value="{{ old($identityField) }}" required autofocus autocomplete="username"
+            <label for="identity" class="mb-1.5 block text-xs font-semibold text-slate-700">Email / NIM / NID / NIP</label>
+            <input type="text" id="identity" name="identity" value="{{ old('identity') }}" required autofocus autocomplete="username"
                 class="w-full rounded-md border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="{{ $identityPlaceholder }}">
+                placeholder="Masukkan email, NIM, atau NIDN/NIP">
         </div>
 
         <div>

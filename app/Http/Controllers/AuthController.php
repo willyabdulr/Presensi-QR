@@ -72,7 +72,10 @@ class AuthController extends Controller
             }
             $request->session()->regenerate();
 
-            return redirect()->intended(route($this->dashboardRoute($role)));
+        if (! $user || ! in_array($user->role, self::ROLES, true) || ! Hash::check($credentials['password'], $user->password)) {
+            return back()->withErrors([
+                $identityField => 'Email, NIM/NIDN, atau password yang Anda masukkan salah.',
+            ])->onlyInput('identity');
         }
 
         $pendingUser = $user ?? User::query()
@@ -86,6 +89,8 @@ class AuthController extends Controller
                 $inputField => 'Akun '.ucfirst($role).' Anda masih menunggu persetujuan admin.',
             ])->onlyInput($inputField);
         }
+        Auth::guard($user->role)->login($user, $request->boolean('remember'));
+        $request->session()->regenerate();
 
         return back()->withErrors([
             $inputField => match ($role) {

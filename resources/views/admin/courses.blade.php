@@ -44,7 +44,7 @@
 
         <form method="POST" action="{{ route('admin.schedules.store') }}" class="space-y-4">
             @csrf
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <label for="mata_kuliah_id" class="mb-1 block text-sm font-medium text-slate-700">Mata kuliah</label>
                     <select id="mata_kuliah_id" name="mata_kuliah_id" required class="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100">
@@ -96,9 +96,18 @@
                     @error('latitude_kelas')<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror
                 </div>
                 <div>
-                    <label for="longitude_kelas" class="mb-1 block text-sm font-medium text-slate-700">Longitude lokasi kelas</label>
-                    <input id="longitude_kelas" name="longitude_kelas" type="number" step="any" min="-180" max="180" value="{{ old('longitude_kelas') }}" required class="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100">
-                    @error('longitude_kelas')<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label for="longitude_kelas" class="mb-1 block text-sm font-medium text-slate-700">Longitude lokasi kelas</label>
+                            <input id="longitude_kelas" name="longitude_kelas" type="number" step="any" min="-180" max="180" value="{{ old('longitude_kelas') }}" required class="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100">
+                            @error('longitude_kelas')<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label for="radius_meter" class="mb-1 block text-sm font-medium text-slate-700">Radius presensi (meter)</label>
+                            <input id="radius_meter" name="radius_meter" type="number" min="1" max="1000" value="{{ old('radius_meter', 50) }}" required class="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100">
+                            @error('radius_meter')<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-3">
@@ -106,6 +115,17 @@
                     <i class="fa-solid fa-location-crosshairs"></i> Gunakan Lokasi Saat Ini
                 </button>
                 <span id="location-status" class="text-xs text-slate-500" role="status" aria-live="polite"></span>
+            </div>
+            <div class="space-y-4 border-t border-slate-200 pt-4">
+                <div class="flex items-center gap-2">
+                    <input id="is_substitute" name="is_substitute" type="checkbox" value="1" @checked(old('is_substitute')) class="rounded border-slate-300 text-teal-700 focus:ring-teal-600">
+                    <label for="is_substitute" class="text-sm font-medium text-slate-700">Dosen pengganti</label>
+                </div>
+                <div id="substitute-note-field" @class(['hidden' => !old('is_substitute')])>
+                    <label for="substitute_note" class="mb-1 block text-sm font-medium text-slate-700">Catatan dosen pengganti</label>
+                    <textarea id="substitute_note" name="substitute_note" rows="2" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100">{{ old('substitute_note') }}</textarea>
+                    @error('substitute_note')<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror
+                </div>
             </div>
             <button type="submit" @disabled($mataKuliahList->isEmpty() || $dosenList->isEmpty()) class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
                 <i class="fa-solid fa-calendar-plus"></i> Simpan Jadwal
@@ -331,6 +351,16 @@
 
 @push('scripts')
     <script>
+        const substituteCheckbox = document.getElementById('is_substitute');
+        const substituteNoteField = document.getElementById('substitute-note-field');
+
+        const toggleSubstituteNote = () => {
+            substituteNoteField?.classList.toggle('hidden', !substituteCheckbox?.checked);
+        };
+
+        substituteCheckbox?.addEventListener('change', toggleSubstituteNote);
+        toggleSubstituteNote();
+
         const locationButton = document.getElementById('use-current-location');
         const locationStatus = document.getElementById('location-status');
         const courseSearch = document.getElementById('course-list-search');

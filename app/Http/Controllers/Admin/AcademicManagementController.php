@@ -80,7 +80,15 @@ class AcademicManagementController extends Controller
             'jam_selesai' => ['required', 'date_format:H:i', 'after:jam_mulai'],
             'latitude_kelas' => ['required', 'numeric', 'between:-90,90'],
             'longitude_kelas' => ['required', 'numeric', 'between:-180,180'],
+            'radius_meter' => ['required', 'integer', 'between:1,1000'],
+            'is_substitute' => ['sometimes', 'boolean'],
+            'substitute_note' => ['nullable', 'string'],
         ]);
+
+        $validated['is_substitute'] = $request->boolean('is_substitute');
+        $validated['substitute_note'] = $validated['is_substitute']
+            ? ($validated['substitute_note'] ?? null)
+            : null;
 
         $hasTimeConflict = JadwalKuliah::query()
             ->where('dosen_id', $validated['dosen_id'])

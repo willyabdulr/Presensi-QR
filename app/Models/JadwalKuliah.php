@@ -26,12 +26,15 @@ class JadwalKuliah extends Model
         'latitude_kelas',
         'longitude_kelas',
         'radius_meter',
+        'is_substitute',
+        'substitute_note',
     ];
 
     protected $casts = [
         'latitude_kelas' => 'float',
         'longitude_kelas' => 'float',
         'radius_meter' => 'integer',
+        'is_substitute' => 'boolean',
     ];
 
     public function dosen(): BelongsTo

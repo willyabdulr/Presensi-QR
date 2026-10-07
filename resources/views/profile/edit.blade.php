@@ -20,7 +20,7 @@
 
         <div class="flex flex-col items-center gap-4 border-b border-slate-100 pb-5 sm:flex-row">
             @if($user->profile_photo_path)
-                <img id="profile-photo-preview" src="{{ Storage::disk('public')->url($user->profile_photo_path) }}" alt="Foto profil saat ini" class="h-20 w-20 rounded-full border border-slate-200 object-cover">
+                <img id="profile-photo-preview" src="{{ asset('storage/' . $user->profile_photo_path) }}" alt="Foto profil saat ini" class="h-20 w-20 rounded-full border border-slate-200 object-cover">
             @else
                 <div id="profile-photo-fallback" class="flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-2xl text-slate-500">
                     <i class="fa-solid fa-user"></i>

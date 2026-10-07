@@ -49,7 +49,9 @@ class AcademicManagementTest extends TestCase
             'kelas' => 'IF-A',
             'latitude_kelas' => '-6.20000000',
             'longitude_kelas' => '106.80000000',
-            'radius_meter' => 5,
+            'radius_meter' => 50,
+            'is_substitute' => true,
+            'substitute_note' => 'Menggantikan dosen berhalangan hadir.',
         ])->assertRedirect(route('admin.courses'));
 
         $this->assertDatabaseHas('jadwal_kuliah', [

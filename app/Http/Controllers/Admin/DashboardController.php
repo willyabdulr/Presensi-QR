@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminActivity;
 use App\Models\JadwalKuliah;
+use App\Models\Kelas;
 use App\Models\MataKuliah;
 use App\Models\Pertemuan;
 use App\Models\Presensi;
@@ -31,14 +33,12 @@ class DashboardController extends Controller
             ->limit(6)
             ->get();
 
-        $recentMeetings = Pertemuan::query()
-            ->with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosen'])
-            ->withCount(['presensi as total_hadir' => fn ($query) => $query->where('status', 'Hadir')])
+        $recentActivities = AdminActivity::query()
             ->latest()
-            ->limit(6)
+            ->limit(8)
             ->get();
 
-        return view('admin.dashboard', compact('stats', 'pendingUsers', 'recentMeetings'));
+        return view('admin.dashboard', compact('stats', 'pendingUsers', 'recentActivities'));
     }
 
     public function courses(): View
@@ -52,26 +52,70 @@ class DashboardController extends Controller
             ->where('is_approved', true)
             ->orderBy('name')
             ->get();
-        $jadwalList = JadwalKuliah::query()
-            ->with(['mataKuliah', 'dosen'])
-            ->orderBy('hari')
-            ->orderBy('jam_mulai')
-            ->paginate(15);
+        $mataKuliahList = MataKuliah::query()
+            ->withCount('jadwalKuliah')
+            ->with(['jadwalKuliah' => function ($query): void {
+                $query->with([
+                    'dosen',
+                    'kelasData',
+                    'pertemuan' => fn ($query) => $query->orderBy('pertemuan_ke'),
+                    'pertemuan.dosenPengganti',
+                ])->orderBy('hari')->orderBy('jam_mulai');
+            }])
+            ->orderBy('nama_mk')
+            ->get();
+        $kelasList = Kelas::query()
+            ->withCount(['mahasiswa', 'jadwalKuliah'])
+            ->orderBy('kode_kelas')
+            ->get();
 
-        return view('admin.courses', compact('mataKuliahList', 'dosenList', 'jadwalList'));
+        return view('admin.courses', compact('mataKuliahList', 'dosenList', 'kelasList'));
     }
 
     public function attendance(): View
     {
-        $meetingList = Pertemuan::query()
-            ->with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosen'])
-            ->withCount(['presensi as total_hadir' => fn ($query) => $query->where('status', 'Hadir')])
-            ->latest()
-            ->paginate(15);
+        $jadwalList = JadwalKuliah::query()
+            ->with(['mataKuliah', 'kelasData'])
+            ->orderBy('mata_kuliah_id')
+            ->orderBy('kelas')
+            ->get();
 
         $totalAttendance = Presensi::query()->where('status', 'Hadir')->count();
         $totalMeetings = Pertemuan::query()->count();
 
-        return view('admin.attendance', compact('meetingList', 'totalAttendance', 'totalMeetings'));
+        $mataKuliahList = MataKuliah::query()
+            ->orderBy('nama_mk')
+            ->get();
+        $selectedMataKuliah = $mataKuliahList->firstWhere('id', request()->integer('mata_kuliah'))
+            ?? $mataKuliahList->first();
+        $kelasList = $jadwalList
+            ->where('mata_kuliah_id', $selectedMataKuliah?->id)
+            ->values();
+        $selectedJadwal = $kelasList->firstWhere('id', request()->integer('jadwal'))
+            ?? $kelasList->first();
+        $pertemuanList = $selectedJadwal
+            ?->pertemuan()
+            ->with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosen', 'dosenPengganti'])
+            ->withCount([
+                'presensi as total_hadir' => fn ($query) => $query->where('status', 'Hadir'),
+                'presensi as total_presensi',
+            ])
+            ->orderBy('pertemuan_ke')
+            ->get() ?? collect();
+        $jumlahMahasiswa = $selectedJadwal?->kelasData?->mahasiswa()->count()
+            ?? $pertemuanList->max('total_presensi')
+            ?? 0;
+
+        return view('admin.attendance', compact(
+            'jadwalList',
+            'mataKuliahList',
+            'selectedMataKuliah',
+            'kelasList',
+            'selectedJadwal',
+            'pertemuanList',
+            'jumlahMahasiswa',
+            'totalAttendance',
+            'totalMeetings'
+        ));
     }
 }

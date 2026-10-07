@@ -47,23 +47,45 @@
                 <option value="approved" @selected(($filters['status'] ?? '') === 'approved')>Disetujui</option>
             </select>
         </div>
+        @if(($filters['role'] ?? null) === 'mahasiswa')
+            <div>
+                <label for="class_id" class="mb-1 block text-xs font-semibold text-slate-600">Kelas</label>
+                <select id="class_id" name="class_id" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm sm:w-44">
+                    <option value="">Semua Kelas</option>
+                    @foreach($classes as $class)
+                        <option value="{{ $class->id }}" @selected(($filters['class_id'] ?? '') == $class->id)>{{ $class->kode_kelas }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
         <div class="flex gap-2">
             <button type="submit" class="inline-flex min-h-10 items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"><i class="fa-solid fa-magnifying-glass"></i>Cari</button>
-            <a href="{{ route('admin.users.index') }}" class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50" title="Reset filter" aria-label="Reset filter"><i class="fa-solid fa-rotate-left"></i></a>
+            <a href="{{ route('admin.users.index', isset($filters['role']) ? ['role' => $filters['role']] : []) }}" class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50" title="Reset filter" aria-label="Reset filter"><i class="fa-solid fa-rotate-left"></i></a>
         </div>
     </form>
 
     <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
+        @if(($filters['role'] ?? null) === 'mahasiswa')
+            <div class="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-slate-600">Ekspor mahasiswa dari kelas yang dipilih atau seluruh kelas.</p>
+                <a href="{{ route('admin.users.export-csv', $exportFilters) }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                    <i class="fa-solid fa-file-csv"></i>Export CSV
+                </a>
+            </div>
+        @endif
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[760px] text-left text-sm">
+            <table class="w-full min-w-[900px] text-left text-sm">
                 <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
                     <tr>
                         <th class="px-4 py-3 font-semibold">Nama akun</th>
                         <th class="px-4 py-3 font-semibold">Email</th>
                         <th class="px-4 py-3 font-semibold">Role</th>
                         <th class="px-4 py-3 font-semibold">NIP / NIM</th>
+                        @if(($filters['role'] ?? null) === 'mahasiswa')
+                            <th class="px-4 py-3 font-semibold">Kelas</th>
+                        @endif
                         <th class="px-4 py-3 font-semibold">Status</th>
-                        <th class="px-4 py-3 text-right font-semibold">Detail</th>
+                        <th class="px-4 py-3 text-right font-semibold">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -73,6 +95,9 @@
                             <td class="px-4 py-3 text-slate-600">{{ $user->email }}</td>
                             <td class="px-4 py-3 text-slate-600">{{ ucfirst($user->role) }}</td>
                             <td class="px-4 py-3 text-slate-600">{{ $user->nomor_induk ?: '-' }}</td>
+                            @if(($filters['role'] ?? null) === 'mahasiswa')
+                                <td class="px-4 py-3 text-slate-600">{{ $user->kelas?->kode_kelas ?? '-' }}</td>
+                            @endif
                             <td class="px-4 py-3">
                                 @if($user->is_approved)
                                     <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><i class="fa-solid fa-circle-check"></i>Disetujui</span>
@@ -85,7 +110,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-12 text-center text-slate-500">Tidak ada akun yang cocok dengan filter.</td></tr>
+                        <tr><td colspan="{{ ($filters['role'] ?? null) === 'mahasiswa' ? 7 : 6 }}" class="px-4 py-12 text-center text-slate-500">Tidak ada akun yang cocok dengan filter.</td></tr>
                     @endforelse
                 </tbody>
             </table>

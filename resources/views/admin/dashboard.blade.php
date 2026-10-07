@@ -66,22 +66,22 @@
         <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
             <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
                 <div>
-                    <h2 class="font-bold text-slate-900">Sesi Terbaru</h2>
-                    <p class="mt-0.5 text-xs text-slate-500">Jumlah presensi hadir di tiap pertemuan.</p>
+                    <h2 class="font-bold text-slate-900">Aktivitas Terbaru</h2>
+                    <p class="mt-0.5 text-xs text-slate-500">Perubahan administrasi akun dan data akademik.</p>
                 </div>
-                <a href="{{ route('admin.attendance') }}" class="shrink-0 text-sm font-semibold text-teal-700 hover:text-teal-900">Rekap</a>
+                <a href="{{ route('admin.courses') }}" class="shrink-0 text-sm font-semibold text-teal-700 hover:text-teal-900">Data Akademik</a>
             </div>
             <div class="divide-y divide-slate-100">
-                @forelse($recentMeetings as $meeting)
+                @forelse($recentActivities as $activity)
                     <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
                         <span class="min-w-0">
-                            <span class="block truncate text-sm font-semibold text-slate-800">{{ $meeting->jadwalKuliah->mataKuliah->nama_mk ?? 'Mata kuliah' }} · P{{ $meeting->pertemuan_ke }}</span>
-                            <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $meeting->jadwalKuliah->dosen->name ?? 'Dosen belum tersedia' }} · {{ $meeting->created_at->format('d M Y') }}</span>
+                            <span class="block truncate text-sm font-semibold text-slate-800">{{ $activity->description }}</span>
+                            <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $activity->created_at->translatedFormat('d M Y, H:i') }}</span>
                         </span>
-                        <span class="shrink-0 rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">{{ $meeting->total_hadir }} hadir</span>
+                        <span class="shrink-0 rounded-md bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-800">Administrasi</span>
                     </div>
                 @empty
-                    <p class="px-5 py-10 text-center text-sm text-slate-500">Belum ada sesi pertemuan.</p>
+                    <p class="px-5 py-10 text-center text-sm text-slate-500">Belum ada aktivitas administrasi.</p>
                 @endforelse
             </div>
         </section>

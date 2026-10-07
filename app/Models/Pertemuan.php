@@ -16,7 +16,11 @@ class Pertemuan extends Model
 
     protected $fillable = [
         'jadwal_kuliah_id',
+        'dosen_pengganti_id',
         'pertemuan_ke',
+        'topik',
+        'tanggal_pertemuan',
+        'status_pertemuan',
         'qr_token',
         'qr_expires_at',
         'is_active',
@@ -24,6 +28,7 @@ class Pertemuan extends Model
 
     protected $casts = [
         'pertemuan_ke' => 'integer',
+        'tanggal_pertemuan' => 'date',
         'qr_expires_at' => 'datetime',
         'is_active' => 'boolean',
     ];
@@ -31,6 +36,11 @@ class Pertemuan extends Model
     public function jadwalKuliah(): BelongsTo
     {
         return $this->belongsTo(JadwalKuliah::class, 'jadwal_kuliah_id');
+    }
+
+    public function dosenPengganti(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'dosen_pengganti_id');
     }
 
     public function presensi(): HasMany
@@ -46,6 +56,7 @@ class Pertemuan extends Model
     public function remainingSeconds(): int
     {
         $diff = Carbon::now()->diffInSeconds($this->qr_expires_at, false);
+
         return max(0, (int) $diff);
     }
 }

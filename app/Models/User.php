@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -17,6 +18,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'kelas_id',
         'nomor_induk',
         'profile_photo_path',
     ];
@@ -38,6 +40,16 @@ class User extends Authenticatable
     public function jadwalDosen(): HasMany
     {
         return $this->hasMany(JadwalKuliah::class, 'dosen_id');
+    }
+
+    public function pertemuanPengganti(): HasMany
+    {
+        return $this->hasMany(Pertemuan::class, 'dosen_pengganti_id');
+    }
+
+    public function kelas(): BelongsTo
+    {
+        return $this->belongsTo(Kelas::class, 'kelas_id');
     }
 
     public function presensi(): HasMany

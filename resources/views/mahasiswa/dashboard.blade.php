@@ -11,7 +11,7 @@
             <p class="mt-1 text-sm text-slate-600">Pantau presensi kuliah dan aktivitas terbaru Anda.</p>
         </div>
         <a href="{{ route('mahasiswa.scan') }}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
-            <i class="fa-solid fa-camera"></i> Scan Absensi
+            <i class="fa-solid fa-camera"></i> Scan Presensi
         </a>
     </div>
 

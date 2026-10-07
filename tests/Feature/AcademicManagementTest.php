@@ -28,8 +28,8 @@ class AcademicManagementTest extends TestCase
             ->get(route('admin.courses'))
             ->assertOk()
             ->assertSeeText('Buat Jadwal & Tugaskan Dosen')
-            ->assertSeeText('Dosen pengganti')
-            ->assertSeeText('Catatan dosen pengganti')
+            ->assertSee('course-list-search', false)
+            ->assertSeeText('Pencarian hanya mencakup nama dan kode mata kuliah.')
             ->assertSee($lecturer->name);
 
         $this->post(route('admin.courses.store'), [
@@ -46,6 +46,7 @@ class AcademicManagementTest extends TestCase
             'hari' => 'Senin',
             'jam_mulai' => '08:00',
             'jam_selesai' => '10:00',
+            'kelas' => 'IF-A',
             'latitude_kelas' => '-6.20000000',
             'longitude_kelas' => '106.80000000',
             'radius_meter' => 50,
@@ -57,20 +58,25 @@ class AcademicManagementTest extends TestCase
             'dosen_id' => $lecturer->id,
             'mata_kuliah_id' => $course->id,
             'hari' => 'Senin',
-            'is_substitute' => true,
-            'substitute_note' => 'Menggantikan dosen berhalangan hadir.',
+            'kelas' => 'IF-A',
+            'radius_meter' => 5,
         ]);
 
-        $this->get(route('admin.courses'))
-            ->assertOk()
-            ->assertSeeText('(Pengganti)')
-            ->assertSeeText('Menggantikan dosen berhalangan hadir.');
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.courses'))
+            ->assertSee('IF-A')
+            ->assertSee(route('admin.schedules.update-class', JadwalKuliah::query()->firstOrFail()), false)
+            ->assertSee(route('admin.schedules.update-time', JadwalKuliah::query()->firstOrFail()), false)
+            ->assertSeeText('Jam mulai')
+            ->assertSeeText('Jam selesai')
+            ->assertDontSeeText('Hapus mata kuliah')
+            ->assertDontSeeText('Edit mata kuliah');
 
         $this->actingAs($lecturer, 'dosen')
             ->get(route('dosen.dashboard'))
             ->assertOk()
             ->assertSee('Pengujian Perangkat Lunak')
-            ->assertSee('Buka Pertemuan 1')
+            ->assertSee('Buat Pertemuan 1')
             ->assertDontSee('Belum ada jadwal kuliah');
     }
 
@@ -104,7 +110,166 @@ class AcademicManagementTest extends TestCase
         $this->assertDatabaseCount('jadwal_kuliah', 1);
     }
 
-    public function test_non_admin_cannot_create_a_schedule(): void
+    public function test_admin_can_update_schedule_start_and_end_times(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $lecturer = User::factory()->create([
+            'role' => 'dosen',
+            'nomor_induk' => '198501011',
+        ]);
+        $course = MataKuliah::create([
+            'kode_mk' => 'IF4210',
+            'nama_mk' => 'Jadwal Dapat Diedit',
+        ]);
+        $schedule = $this->createSchedule($course, $lecturer, [
+            'hari' => 'Rabu',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:00',
+        ]);
+
+        $this->actingAs($admin, 'admin')
+            ->patch(route('admin.schedules.update-time', $schedule), [
+                'jam_mulai' => '10:00',
+                'jam_selesai' => '12:30',
+            ])
+            ->assertRedirect(route('admin.courses'))
+            ->assertSessionHas('success', 'Jam jadwal berhasil diperbarui.');
+
+        $this->assertDatabaseHas('jadwal_kuliah', [
+            'id' => $schedule->id,
+            'jam_mulai' => '10:00',
+            'jam_selesai' => '12:30',
+        ]);
+    }
+
+    public function test_schedule_time_update_rejects_invalid_order_and_lecturer_conflicts(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $lecturer = User::factory()->create([
+            'role' => 'dosen',
+            'nomor_induk' => '198501012',
+        ]);
+        $course = MataKuliah::create([
+            'kode_mk' => 'IF4211',
+            'nama_mk' => 'Jadwal Pertama',
+        ]);
+        $schedule = $this->createSchedule($course, $lecturer, [
+            'hari' => 'Kamis',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:00',
+        ]);
+        $otherCourse = MataKuliah::create([
+            'kode_mk' => 'IF4212',
+            'nama_mk' => 'Jadwal Kedua',
+        ]);
+        $this->createSchedule($otherCourse, $lecturer, [
+            'hari' => 'Kamis',
+            'jam_mulai' => '13:00',
+            'jam_selesai' => '15:00',
+        ]);
+
+        $this->actingAs($admin, 'admin')
+            ->patch(route('admin.schedules.update-time', $schedule), [
+                'jam_mulai' => '10:00',
+                'jam_selesai' => '09:00',
+            ])
+            ->assertSessionHasErrors('jam_selesai');
+
+        $this->patch(route('admin.schedules.update-time', $schedule), [
+            'jam_mulai' => '12:30',
+            'jam_selesai' => '14:00',
+        ])
+            ->assertSessionHasErrors('jam_mulai');
+
+        $this->assertDatabaseHas('jadwal_kuliah', [
+            'id' => $schedule->id,
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:00',
+        ]);
+    }
+
+    public function test_admin_can_edit_or_clear_a_schedule_class(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $lecturer = User::factory()->create([
+            'role' => 'dosen',
+            'nomor_induk' => '198501007',
+        ]);
+        $course = MataKuliah::create([
+            'kode_mk' => 'IF4106',
+            'nama_mk' => 'Pemrograman Lanjut',
+        ]);
+        $schedule = $this->createSchedule($course, $lecturer);
+
+        $this->actingAs($admin, 'admin')
+            ->patch(route('admin.schedules.update-class', $schedule), ['kelas' => 'IF-B'])
+            ->assertRedirect(route('admin.courses'));
+
+        $this->assertDatabaseHas('jadwal_kuliah', [
+            'id' => $schedule->id,
+            'kelas' => 'IF-B',
+        ]);
+
+        $this->patch(route('admin.schedules.update-class', $schedule), ['kelas' => ''])
+            ->assertRedirect(route('admin.courses'));
+
+        $this->assertDatabaseHas('jadwal_kuliah', [
+            'id' => $schedule->id,
+            'kelas' => null,
+        ]);
+    }
+
+    public function test_schedule_class_cannot_exceed_twenty_characters(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $lecturer = User::factory()->create([
+            'role' => 'dosen',
+            'nomor_induk' => '198501008',
+        ]);
+        $course = MataKuliah::create([
+            'kode_mk' => 'IF4107',
+            'nama_mk' => 'Rekayasa Perangkat Lunak',
+        ]);
+        $schedule = $this->createSchedule($course, $lecturer, ['kelas' => 'IF-A']);
+
+        $this->actingAs($admin, 'admin')
+            ->patch(route('admin.schedules.update-class', $schedule), ['kelas' => str_repeat('A', 21)])
+            ->assertSessionHasErrors('kelas');
+
+        $this->assertDatabaseHas('jadwal_kuliah', [
+            'id' => $schedule->id,
+            'kelas' => 'IF-A',
+        ]);
+    }
+
+    public function test_admin_schedule_form_uses_the_fixed_campus_radius(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $lecturer = User::factory()->create([
+            'role' => 'dosen',
+            'nomor_induk' => '198501006',
+        ]);
+        $course = MataKuliah::create([
+            'kode_mk' => 'IF4105',
+            'nama_mk' => 'Sistem Operasi',
+        ]);
+
+        $this->actingAs($admin, 'admin');
+        $this->get(route('admin.courses'))
+            ->assertOk()
+            ->assertDontSee('name="radius_meter"', false);
+        $this->post(route('admin.schedules.store'), $this->schedulePayload($course, $lecturer, [
+            'radius_meter' => JadwalKuliah::MAX_RADIUS_METERS + 10,
+        ]))
+            ->assertRedirect(route('admin.courses'));
+
+        $this->assertDatabaseHas('jadwal_kuliah', [
+            'mata_kuliah_id' => $course->id,
+            'radius_meter' => JadwalKuliah::MAX_RADIUS_METERS,
+        ]);
+    }
+
+    public function test_non_admin_cannot_create_or_edit_a_schedule(): void
     {
         $lecturer = User::factory()->create([
             'role' => 'dosen',
@@ -114,12 +279,26 @@ class AcademicManagementTest extends TestCase
             'kode_mk' => 'IF4103',
             'nama_mk' => 'Jaringan Komputer',
         ]);
+        $schedule = $this->createSchedule($course, $lecturer);
 
         $this->actingAs($lecturer, 'dosen')
             ->post(route('admin.schedules.store'), $this->schedulePayload($course, $lecturer))
             ->assertRedirect(route('login'));
 
-        $this->assertDatabaseCount('jadwal_kuliah', 0);
+        $this->patch(route('admin.schedules.update-class', $schedule), ['kelas' => 'IF-A'])
+            ->assertRedirect(route('login'));
+
+        $this->patch(route('admin.schedules.update-time', $schedule), [
+            'jam_mulai' => '10:00',
+            'jam_selesai' => '12:00',
+        ])->assertRedirect(route('login'));
+
+        $this->assertDatabaseHas('jadwal_kuliah', [
+            'id' => $schedule->id,
+            'kelas' => null,
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:00',
+        ]);
     }
 
     public function test_lecturer_attendance_report_shows_meeting_status_and_percentage(): void
@@ -155,7 +334,7 @@ class AcademicManagementTest extends TestCase
         $this->actingAs($lecturer, 'dosen')
             ->get(route('dosen.attendance'))
             ->assertOk()
-            ->assertSee('Rekap Absensi')
+            ->assertSee('Rekap Presensi')
             ->assertSee('Pemrograman Web')
             ->assertSee($student->name)
             ->assertSee($student->nomor_induk)
@@ -184,7 +363,7 @@ class AcademicManagementTest extends TestCase
             'jam_selesai' => '10:00',
             'latitude_kelas' => '-6.20000000',
             'longitude_kelas' => '106.80000000',
-            'radius_meter' => 50,
+            'radius_meter' => 5,
             ...$overrides,
         ];
     }

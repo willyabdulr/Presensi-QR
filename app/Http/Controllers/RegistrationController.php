@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\RegistrationUserResource;
+use App\Models\AdminActivity;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -74,17 +76,23 @@ class RegistrationController extends Controller
      */
     private function createUser(array $validated, string $role): User
     {
-        $user = new User([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'nomor_induk' => $validated['nomor_induk'],
-            'password' => $validated['password'],
-            'role' => $role,
-        ]);
+        return DB::transaction(function () use ($validated, $role): User {
+            $user = new User([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'nomor_induk' => $validated['nomor_induk'],
+                'password' => $validated['password'],
+                'role' => $role,
+            ]);
 
-        $user->is_approved = false;
-        $user->save();
+            $user->is_approved = false;
+            $user->save();
+            AdminActivity::record(
+                $role === 'dosen' ? 'lecturer_added' : 'student_added',
+                ucfirst($role).' ditambahkan: '.$user->name.' ('.$user->nomor_induk.')'
+            );
 
-        return $user;
+            return $user;
+        });
     }
 }

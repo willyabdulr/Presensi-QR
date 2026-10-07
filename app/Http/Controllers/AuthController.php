@@ -26,20 +26,51 @@ class AuthController extends Controller
         return view('auth.login', compact('role'));
     }
 
-    public function login(Request $request, string $role): RedirectResponse
+    public function login(Request $request, ?string $role = null): RedirectResponse
     {
-        $identityField = $request->filled('identity')
-            ? 'identity'
-            : ($request->filled('email') ? 'email' : 'nomor_induk');
-        $request->merge(['identity' => $request->input($identityField)]);
-        $credentials = $request->validate([
-            'identity' => 'required|string|max:255',
-            'password' => 'required|string',
-        ]);
-        $user = User::query()
-            ->where('email', $credentials['identity'])
-            ->orWhere('nomor_induk', $credentials['identity'])
-            ->first();
+        abort_unless($role === null || in_array($role, self::ROLES, true), 404);
+
+        if ($role === null) {
+            $credentials = $request->validate([
+                'identifier' => ['required', 'string', 'max:255'],
+                'password' => ['required', 'string'],
+            ]);
+            $inputField = 'identifier';
+            $identity = $credentials[$inputField];
+            $identityField = str_contains($identity, '@') ? 'email' : 'nomor_induk';
+            $user = User::query()->where($identityField, $identity)->first();
+            $role = $user?->role;
+
+            if (! in_array($role, self::ROLES, true)) {
+                return back()->withErrors([
+                    $inputField => 'Email, NIM, NID/NIP atau password yang Anda masukkan salah.',
+                ])->onlyInput($inputField);
+            }
+        } else {
+            $identityField = $role === 'admin' ? 'email' : 'nomor_induk';
+            $credentials = $request->validate([
+                $identityField => $identityField === 'email' ? 'required|email' : 'required|string|max:32',
+                'password' => 'required|string',
+            ]);
+            $inputField = $identityField;
+            $identity = $credentials[$identityField];
+            $user = null;
+        }
+
+        $authCredentials = [
+            $identityField => $identity,
+            'password' => $credentials['password'],
+            'role' => $role,
+            'is_approved' => true,
+        ];
+
+        if (Auth::guard($role)->attempt($authCredentials, $request->boolean('remember'))) {
+            foreach (['web', ...self::ROLES] as $guard) {
+                if ($guard !== $role) {
+                    Auth::guard($guard)->logout();
+                }
+            }
+            $request->session()->regenerate();
 
         if (! $user || ! in_array($user->role, self::ROLES, true) || ! Hash::check($credentials['password'], $user->password)) {
             return back()->withErrors([
@@ -47,21 +78,27 @@ class AuthController extends Controller
             ])->onlyInput('identity');
         }
 
-        if (! $user->is_approved) {
-            return back()->withErrors([
-                $identityField => 'Akun Anda belum dikonfirmasi oleh Admin. Silakan hubungi pengelola sistem.',
-            ])->onlyInput('identity');
-        }
+        $pendingUser = $user ?? User::query()
+            ->where($identityField, $identity)
+            ->where('role', $role)
+            ->where('is_approved', false)
+            ->first();
 
-        foreach (['web', ...self::ROLES] as $guard) {
-            if ($guard !== $user->role) {
-                Auth::guard($guard)->logout();
-            }
+        if ($pendingUser && ! $pendingUser->is_approved && Hash::check($credentials['password'], $pendingUser->password)) {
+            return back()->withErrors([
+                $inputField => 'Akun '.ucfirst($role).' Anda masih menunggu persetujuan admin.',
+            ])->onlyInput($inputField);
         }
         Auth::guard($user->role)->login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 
-        return redirect()->route($this->dashboardRoute($user->role));
+        return back()->withErrors([
+            $inputField => match ($role) {
+                'dosen' => 'NID/NIP atau password yang Anda masukkan salah.',
+                'mahasiswa' => 'NIM atau password yang Anda masukkan salah.',
+                default => 'Email, NIM, NID/NIP atau password yang Anda masukkan salah.',
+            },
+        ])->onlyInput($inputField);
     }
 
     public function logout(Request $request): RedirectResponse

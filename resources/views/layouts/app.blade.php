@@ -43,13 +43,13 @@
             'dosen' => [
                 ['label' => 'Dashboard', 'url' => route('dosen.dashboard'), 'icon' => 'fa-house', 'active' => request()->routeIs('dosen.dashboard')],
                 ['label' => 'Kelas & Sesi QR', 'url' => route('dosen.dashboard').'#kelas', 'icon' => 'fa-qrcode', 'active' => request()->routeIs('dosen.pertemuan.*')],
-                ['label' => 'Rekap Absensi', 'url' => route('dosen.attendance'), 'icon' => 'fa-file-lines', 'active' => request()->routeIs('dosen.attendance')],
+                ['label' => 'Rekap Presensi', 'url' => route('dosen.attendance'), 'icon' => 'fa-file-lines', 'active' => request()->routeIs('dosen.attendance')],
                 ['label' => 'Profil', 'url' => route('dosen.profile'), 'icon' => 'fa-circle-user', 'active' => request()->routeIs('dosen.profile')],
             ],
             'mahasiswa' => [
                 ['label' => 'Dashboard', 'url' => route('mahasiswa.dashboard'), 'icon' => 'fa-house', 'active' => request()->routeIs('mahasiswa.dashboard')],
-                ['label' => 'Scan Absensi', 'url' => route('mahasiswa.scan'), 'icon' => 'fa-camera', 'active' => request()->routeIs('mahasiswa.scan')],
-                ['label' => 'Riwayat Absensi', 'url' => route('mahasiswa.riwayat'), 'icon' => 'fa-clock-rotate-left', 'active' => request()->routeIs('mahasiswa.riwayat')],
+                ['label' => 'Scan Presensi', 'url' => route('mahasiswa.scan'), 'icon' => 'fa-camera', 'active' => request()->routeIs('mahasiswa.scan')],
+                ['label' => 'Riwayat Presensi', 'url' => route('mahasiswa.riwayat'), 'icon' => 'fa-clock-rotate-left', 'active' => request()->routeIs('mahasiswa.riwayat')],
                 ['label' => 'Profil', 'url' => route('mahasiswa.profile'), 'icon' => 'fa-circle-user', 'active' => request()->routeIs('mahasiswa.profile')],
             ],
             default => [],
@@ -64,7 +64,7 @@
                 </span>
                 <span class="min-w-0">
                     <span class="block text-base font-extrabold text-[#17385f]">EduAttend</span>
-                    <span class="hidden text-[11px] text-slate-500 sm:block">Sistem Absensi Perkuliahan</span>
+                    <span class="hidden text-[11px] text-slate-500 sm:block">Sistem Presensi Perkuliahan</span>
                 </span>
             </a>
 

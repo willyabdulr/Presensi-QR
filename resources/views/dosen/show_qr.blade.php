@@ -3,34 +3,104 @@
 @section('title', 'Sesi QR Presensi - Pertemuan ' . $pertemuan->pertemuan_ke)
 
 @section('content')
-<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+@php($isSubstituteLecturer = $pertemuan->dosen_pengganti_id === auth('dosen')->id())
+<section class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Filter jadwal">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+            <label for="courseFilter" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Mata Kuliah</label>
+            <select id="courseFilter" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                @foreach($jadwalList->unique('mata_kuliah_id') as $jadwal)
+                    <option value="{{ $jadwal->mata_kuliah_id }}" @selected($jadwal->mata_kuliah_id === $pertemuan->jadwalKuliah->mata_kuliah_id)>{{ $jadwal->mataKuliah->nama_mk }} ({{ $jadwal->mataKuliah->kode_mk }})</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label for="classFilter" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Kelas</label>
+            <select id="classFilter" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                @foreach($jadwalList as $jadwal)
+                    @php($jadwalSession = $jadwal->pertemuan->first())
+                    <option
+                        value="{{ $jadwal->id }}"
+                        data-course-id="{{ $jadwal->mata_kuliah_id }}"
+                        data-url="{{ $jadwalSession ? route('dosen.pertemuan.qr', $jadwalSession) : '' }}"
+                        @disabled($jadwalSession === null)
+                        @selected($jadwal->id === $pertemuan->jadwal_kuliah_id)
+                    >{{ $jadwal->kelas ?: 'Kelas belum ditentukan' }} · {{ $jadwal->hari }} ({{ substr($jadwal->jam_mulai, 0, 5) }})</option>
+                @endforeach
+            </select>
+        </div>
+    </div>
+</section>
+
+<div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
     <div>
-        <nav class="flex text-xs text-slate-500 mb-1" aria-label="Breadcrumb">
-            <a href="{{ route('dosen.dashboard') }}" class="hover:text-indigo-600">Dashboard</a>
+        <nav class="mb-1 flex text-xs text-slate-500" aria-label="Breadcrumb">
+            <a href="{{ route('dosen.dashboard') }}" class="hover:text-blue-600">Dashboard</a>
             <span class="mx-2">/</span>
-            <span class="text-slate-700 font-medium">Pertemuan {{ $pertemuan->pertemuan_ke }}</span>
+            <span class="font-medium text-slate-700">Pertemuan {{ $pertemuan->pertemuan_ke }}</span>
         </nav>
-        <h1 class="text-2xl font-black text-slate-900 tracking-tight">
+        <h1 class="text-2xl font-black tracking-tight text-slate-900">
             {{ $pertemuan->jadwalKuliah->mataKuliah->nama_mk ?? 'Mata Kuliah' }} ({{ $pertemuan->jadwalKuliah->mataKuliah->kode_mk ?? '-' }})
         </h1>
         <p class="text-sm text-slate-500">
-            Pertemuan Ke-{{ $pertemuan->pertemuan_ke }} &bull; {{ $pertemuan->jadwalKuliah->hari }}, {{ $pertemuan->jadwalKuliah->jam_mulai }} - {{ $pertemuan->jadwalKuliah->jam_selesai }} WIB
+            Pertemuan {{ $pertemuan->pertemuan_ke }} — {{ $pertemuan->topik }}
+        </p>
+        <p class="mt-1 text-sm text-slate-500">
+            Tanggal: {{ $pertemuan->tanggal_pertemuan?->translatedFormat('d F Y') ?? 'Belum diatur' }}
+            <span class="px-1">·</span>{{ $pertemuan->jadwalKuliah->kelas ?: 'Kelas belum ditentukan' }}
+            <span class="px-1">·</span>{{ $pertemuan->status_pertemuan }}
+        </p>
+        <p class="mt-1 text-sm text-slate-500">
+            Dosen: {{ $pertemuan->dosenPengganti->name ?? $pertemuan->jadwalKuliah->dosen->name }}
+            @if($pertemuan->dosenPengganti)
+                <span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-800">Dosen Pengganti</span>
+            @endif
         </p>
     </div>
 
-    <div class="flex items-center space-x-2">
-        <a href="{{ route('dosen.jadwal.export_rekap', $pertemuan->jadwal_kuliah_id) }}" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition">
+    <div class="flex flex-wrap items-center gap-2">
+        @if($pertemuan->status_pertemuan === 'Berlangsung')
+        <button type="button" onclick="openQrProjection()" class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">
+            <i class="fa-solid fa-expand"></i> Buka Layar QR Code
+        </button>
+        <form method="POST" action="{{ route('dosen.pertemuan.end', $pertemuan) }}" onsubmit="return confirm('Akhiri pertemuan dan tutup presensi?')">
+            @csrf
+            <button type="submit" class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-rose-700 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-rose-800">
+                <i class="fa-solid fa-stop"></i> Akhiri Pertemuan
+            </button>
+        </form>
+        @endif
+        @unless($isSubstituteLecturer)
+        <a href="{{ route('dosen.jadwal.export_rekap', $pertemuan->jadwal_kuliah_id) }}" class="inline-flex min-h-10 items-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow">
             <i class="fa-solid fa-file-csv mr-2"></i> Ekspor Rekap CSV
         </a>
-        <a href="{{ route('dosen.dashboard') }}" class="inline-flex items-center px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium rounded-xl transition">
+        @endunless
+        <a href="{{ route('dosen.dashboard') }}" class="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
             <i class="fa-solid fa-arrow-left mr-1.5"></i> Kembali
         </a>
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    {{-- Kolom Kiri: QR Code & Pengaturan Geolokasi --}}
-    <div class="lg:col-span-5 flex flex-col gap-6">
+<nav class="mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" aria-label="Pilih pertemuan">
+    <div class="flex min-w-max gap-2">
+        @for($meetingNumber = 1; $meetingNumber <= 16; $meetingNumber++)
+            @php($meeting = $pertemuan->jadwalKuliah->pertemuan->firstWhere('pertemuan_ke', $meetingNumber))
+            @if($meeting)
+                <a href="{{ route('dosen.pertemuan.qr', $meeting) }}" @class([
+                    'inline-flex h-10 min-w-12 items-center justify-center rounded-full px-4 text-sm font-bold transition',
+                    'bg-blue-600 text-white shadow-sm' => $meeting->id === $pertemuan->id,
+                    'bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700' => $meeting->id !== $pertemuan->id,
+                ]) aria-current="{{ $meeting->id === $pertemuan->id ? 'page' : 'false' }}">P{{ $meetingNumber }}</a>
+            @else
+                <button type="button" disabled class="inline-flex h-10 min-w-12 items-center justify-center rounded-full bg-slate-50 px-4 text-sm font-semibold text-slate-300" title="Pertemuan belum dibuat">P{{ $meetingNumber }}</button>
+            @endif
+        @endfor
+    </div>
+</nav>
+
+<div class="space-y-6">
+    @if($pertemuan->status_pertemuan === 'Berlangsung')
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {{-- Card QR Code --}}
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col items-center text-center relative overflow-hidden">
             <div class="w-full flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
@@ -133,17 +203,15 @@
                     <div class="flex items-center justify-between mb-1">
                         <label for="radiusSelector" class="text-slate-600 font-medium">Toleransi Radius Mahasiswa:</label>
                         <span id="currentRadiusBadge" class="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">
-                            {{ $pertemuan->jadwalKuliah->radius_meter }} Meter
+                            {{ min($pertemuan->jadwalKuliah->radius_meter, \App\Models\JadwalKuliah::MAX_RADIUS_METERS) }} Meter
                         </span>
                     </div>
                     <select id="radiusSelector" onchange="changeRadius(this.value)" class="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                        <option value="50" {{ $pertemuan->jadwalKuliah->radius_meter == 50 ? 'selected' : '' }}>50 Meter (Standar Ruangan Kelas)</option>
-                        <option value="100" {{ $pertemuan->jadwalKuliah->radius_meter == 100 ? 'selected' : '' }}>100 Meter (Gedung Bertingkat / Akurasi Sedang)</option>
-                        <option value="200" {{ $pertemuan->jadwalKuliah->radius_meter == 200 ? 'selected' : '' }}>200 Meter (Area Kampus / Toleransi Luas)</option>
-                        <option value="500" {{ $pertemuan->jadwalKuliah->radius_meter == 500 ? 'selected' : '' }}>500 Meter (Uji Coba / Sinyal Lemah)</option>
-                        <option value="1000" {{ $pertemuan->jadwalKuliah->radius_meter == 1000 ? 'selected' : '' }}>1000 Meter / 1 Km (Uji Coba Jarak Jauh)</option>
+                        @for($radiusMeter = 1; $radiusMeter <= \App\Models\JadwalKuliah::MAX_RADIUS_METERS; $radiusMeter++)
+                            <option value="{{ $radiusMeter }}" @selected(min($pertemuan->jadwalKuliah->radius_meter, \App\Models\JadwalKuliah::MAX_RADIUS_METERS) == $radiusMeter)>{{ $radiusMeter }} Meter</option>
+                        @endfor
                     </select>
-                    <p class="text-[10px] text-slate-400 mt-1">Ubah radius jika mahasiswa berada di ruangan bertingkat dengan sinyal GPS lemah.</p>
+                    <p class="text-[10px] text-slate-400 mt-1">Batas jarak maksimal scan QR: {{ \App\Models\JadwalKuliah::MAX_RADIUS_METERS }} meter.</p>
                 </div>
             </div>
 
@@ -165,55 +233,89 @@
         </div>
     </div>
 
-    {{-- Kolom Kanan: Live Monitoring Presensi --}}
-    <div class="lg:col-span-7 flex flex-col gap-4">
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
+    </div>
+
+    @else
+        <div class="rounded-md border border-slate-200 bg-white px-5 py-6 text-center text-sm text-slate-600">
+            Pertemuan {{ strtolower($pertemuan->status_pertemuan) }}. QR dan perubahan presensi tidak tersedia.
+        </div>
+    @endif
+
+    {{-- Live Monitoring Presensi --}}
+    <div class="flex flex-col">
+        <div class="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <h2 class="font-bold text-slate-900 text-lg flex items-center">
-                        <i class="fa-solid fa-users-viewfinder text-indigo-600 mr-2"></i> Live Monitoring Presensi
+                        <i class="fa-solid fa-users-viewfinder text-blue-600 mr-2"></i> Rekap Presensi Mahasiswa
                     </h2>
-                    <p class="text-xs text-slate-500">Pembaruan realtime daftar mahasiswa yang telah hadir</p>
+                    <p class="text-xs text-slate-500">Status kehadiran seluruh mahasiswa di kelas ini</p>
                 </div>
                 <div class="flex items-center space-x-2">
                     <span class="text-xs text-slate-400">Total Hadir:</span>
                     <span id="badgeTotalHadir" class="px-3 py-1 bg-indigo-100 text-indigo-800 font-extrabold text-sm rounded-xl">
                         {{ $pertemuan->presensi->where('status', 'Hadir')->count() }}
                     </span>
+                    <span class="text-xs text-slate-400">Tidak Hadir:</span>
+                    <span id="badgeTotalTidakHadir" class="px-3 py-1 bg-rose-100 text-rose-800 font-extrabold text-sm rounded-xl">
+                        {{ $pertemuan->presensi->where('status', 'Tidak Hadir')->count() }}
+                    </span>
                     <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping ml-1" title="Realtime Polling Aktif"></span>
                 </div>
             </div>
 
-            <div class="overflow-x-auto flex-grow p-2">
-                <table class="w-full text-left border-collapse text-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[680px] border-collapse text-left text-sm">
                     <thead>
-                        <tr class="text-xs font-semibold text-slate-400 uppercase border-b border-slate-100">
-                            <th class="py-3 px-3">No</th>
-                            <th class="py-3 px-3">Mahasiswa</th>
-                            <th class="py-3 px-3">Waktu</th>
-                            <th class="py-3 px-3">Jarak ke Kelas</th>
-                            <th class="py-3 px-3 text-center">Status</th>
+                        <tr class="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                            <th class="px-4 py-3">No</th>
+                            <th class="px-4 py-3">NIM</th>
+                            <th class="px-4 py-3">Nama Mahasiswa</th>
+                            <th class="px-4 py-3 text-center">Status Presensi</th>
+                            <th class="px-4 py-3 text-center">{{ $pertemuan->status_pertemuan === 'Berlangsung' ? 'Absensi Manual' : 'Aksi' }}</th>
                         </tr>
                     </thead>
-                    <tbody id="attendanceTableBody" class="divide-y divide-slate-100">
-                        @forelse($pertemuan->presensi as $index => $item)
-                            <tr class="hover:bg-slate-50 transition">
-                                <td class="py-3 px-3 text-xs text-slate-400">{{ $index + 1 }}</td>
-                                <td class="py-3 px-3">
-                                    <div class="font-semibold text-slate-900">{{ $item->mahasiswa->name ?? 'Mahasiswa' }}</div>
-                                    <div class="text-xs text-slate-500 font-mono">{{ $item->mahasiswa->nomor_induk ?? '-' }}</div>
+                    <tbody
+                        id="attendanceTableBody"
+                        class="divide-y divide-slate-100"
+                        data-manual-url="{{ route('dosen.pertemuan.manual_attendance', ['pertemuan' => $pertemuan, 'presensi' => '__PRESENSI_ID__']) }}"
+                    >
+                        @forelse($pertemuan->presensi->sortBy(fn ($presensi) => $presensi->mahasiswa?->nomor_induk) as $item)
+                            <tr class="transition hover:bg-blue-50/40">
+                                <td class="px-4 py-3 text-center text-slate-500">{{ $loop->iteration }}</td>
+                                <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ $item->mahasiswa->nomor_induk ?? '-' }}</td>
+                                <td class="px-4 py-3 font-semibold text-slate-900">{{ $item->mahasiswa->name ?? 'Mahasiswa' }}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <span @class([
+                                        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold',
+                                        'bg-emerald-100 text-emerald-800' => $item->status === 'Hadir',
+                                        'bg-rose-100 text-rose-800' => $item->status !== 'Hadir',
+                                    ])>{{ $item->status }}</span>
                                 </td>
-                                <td class="py-3 px-3 text-xs font-mono text-slate-600">{{ $item->waktu_presensi ? $item->waktu_presensi->format('H:i:s') : '-' }} WIB</td>
-                                <td class="py-3 px-3 text-xs"><span class="font-medium text-slate-700 font-mono">{{ round($item->jarak_meter, 1) }} m</span></td>
-                                <td class="py-3 px-3 text-center">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                                        <i class="fa-solid fa-check text-[10px] mr-1"></i> {{ $item->status }}
-                                    </span>
+                                <td class="px-4 py-3">
+                                    @if($pertemuan->status_pertemuan === 'Berlangsung')
+                                    <div class="flex justify-center gap-2">
+                                        <form method="POST" action="{{ route('dosen.pertemuan.manual_attendance', [$pertemuan, $item]) }}">
+                                            @csrf
+                                            <button type="submit" name="status" value="Hadir" class="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700">
+                                                <i class="fa-solid fa-check"></i> Hadir
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ route('dosen.pertemuan.manual_attendance', [$pertemuan, $item]) }}">
+                                            @csrf
+                                            <button type="submit" name="status" value="Tidak Hadir" class="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-700">
+                                                <i class="fa-solid fa-xmark"></i> Tidak Hadir
+                                            </button>
+                                        </form>
+                                    </div>
+                                    @else
+                                        <span class="block text-center text-xs text-slate-400">Read-only</span>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
                             <tr id="emptyRow">
-                                <td colspan="5" class="py-12 text-center text-slate-400 text-sm">
+                                <td colspan="5" class="py-12 text-center text-sm text-slate-400">
                                     <i class="fa-regular fa-clipboard text-3xl mb-2 text-slate-300 block"></i>
                                     Belum ada mahasiswa yang melakukan presensi pada pertemuan ini.
                                 </td>
@@ -232,8 +334,33 @@
         </div>
     </div>
 </div>
+
+@if($pertemuan->status_pertemuan === 'Berlangsung')
+<dialog id="qrProjectionModal" class="m-auto max-h-[95vh] w-[min(95vw,900px)] max-w-none overflow-y-auto rounded-3xl bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/90">
+    <div class="relative flex min-h-[80vh] flex-col items-center justify-center gap-5 p-6 text-center sm:p-10">
+        <button type="button" onclick="closeQrProjection()" class="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200" aria-label="Tutup layar QR Code">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div>
+            <p class="text-sm font-bold uppercase tracking-[0.2em] text-blue-700">EduAttend · Presensi</p>
+            <h2 class="mt-2 text-2xl font-black sm:text-3xl">{{ $pertemuan->jadwalKuliah->mataKuliah->nama_mk }} · P{{ $pertemuan->pertemuan_ke }} — {{ $pertemuan->topik }}</h2>
+                <p class="mt-1 text-slate-500">{{ $pertemuan->jadwalKuliah->kelas ?: 'Kelas' }} · {{ $pertemuan->tanggal_pertemuan?->translatedFormat('d F Y') ?? 'Tanggal belum diatur' }}</p>
+        </div>
+        <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-lg sm:p-6">
+            <div id="projectionQrCodeCanvas" class="flex min-h-[280px] min-w-[280px] items-center justify-center sm:min-h-[420px] sm:min-w-[420px]" aria-label="QR Code presensi"></div>
+        </div>
+        <div class="space-y-2">
+            <p class="text-lg font-bold text-slate-800">QR Code diperbarui otomatis dalam <span id="projectionRefreshTimer" class="font-mono text-blue-700">15 detik</span></p>
+            <p class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">
+                <i class="fa-solid fa-location-dot"></i> Batas Validasi Jarak: {{ \App\Models\JadwalKuliah::MAX_RADIUS_METERS }} Meter
+            </p>
+        </div>
+    </div>
+</dialog>
+@endif
 @endsection
 
+@if($pertemuan->status_pertemuan === 'Berlangsung')
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -241,25 +368,77 @@
     let remainingSeconds = {{ $pertemuan->remainingSeconds() }};
     let currentClassLat = {{ (float) $pertemuan->jadwalKuliah->latitude_kelas }};
     let currentClassLon = {{ (float) $pertemuan->jadwalKuliah->longitude_kelas }};
-    let currentRadius = {{ (float) $pertemuan->jadwalKuliah->radius_meter }};
+    let currentRadius = {{ min($pertemuan->jadwalKuliah->radius_meter, \App\Models\JadwalKuliah::MAX_RADIUS_METERS) }};
     let dosenCurrentLat = null;
     let dosenCurrentLon = null;
     let dosenCurrentAcc = null;
-    let qrcodeInstance = null;
     let countdownInterval = null;
     let pollingInterval = null;
+    let projectionRefreshInterval = null;
+    let projectionCountdownInterval = null;
+    let projectionRefreshSeconds = 15;
 
     function initQrCode(token) {
-        const container = document.getElementById('qrcodeCanvas');
-        container.innerHTML = '';
-        qrcodeInstance = new QRCode(container, {
-            text: token,
-            width: 230,
-            height: 230,
-            colorDark: "#1e1b4b",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
+        [
+            { id: 'qrcodeCanvas', size: 230 },
+            { id: 'projectionQrCodeCanvas', size: 390 }
+        ].forEach(({ id, size }) => {
+            const container = document.getElementById(id);
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: token,
+                width: size,
+                height: size,
+                colorDark: "#111827",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
         });
+    }
+
+    function openQrProjection() {
+        document.getElementById('qrProjectionModal').showModal();
+        startProjectionRefresh();
+    }
+
+    function closeQrProjection() {
+        document.getElementById('qrProjectionModal').close();
+    }
+
+    function startProjectionRefresh() {
+        clearTimeout(projectionRefreshInterval);
+        clearInterval(projectionCountdownInterval);
+        if (remainingSeconds <= 0) {
+            document.getElementById('projectionRefreshTimer').innerText = 'Sesi QR berakhir';
+            return;
+        }
+
+        projectionRefreshSeconds = 15;
+        document.getElementById('projectionRefreshTimer').innerText = `${projectionRefreshSeconds} detik`;
+        projectionCountdownInterval = setInterval(() => {
+            projectionRefreshSeconds--;
+            document.getElementById('projectionRefreshTimer').innerText = `${projectionRefreshSeconds} detik`;
+
+            if (projectionRefreshSeconds <= 0 || remainingSeconds <= 0) {
+                clearInterval(projectionCountdownInterval);
+                if (remainingSeconds <= 0) {
+                    document.getElementById('projectionRefreshTimer').innerText = 'Sesi QR berakhir';
+                    return;
+                }
+
+                projectionRefreshInterval = setTimeout(async () => {
+                    await regenerateQrCode(false, true);
+                    if (document.getElementById('qrProjectionModal').open && remainingSeconds > 0) {
+                        startProjectionRefresh();
+                    }
+                }, 0);
+            }
+        }, 1000);
+    }
+
+    function stopProjectionRefresh() {
+        clearTimeout(projectionRefreshInterval);
+        clearInterval(projectionCountdownInterval);
     }
 
     function formatTime(seconds) {
@@ -302,7 +481,7 @@
         }, 1000);
     }
 
-    async function regenerateQrCode() {
+    async function regenerateQrCode(showSuccess = true, autoRefresh = false) {
         const btn = document.getElementById('btnRegenerate');
         const icon = document.getElementById('iconRotate');
         btn.disabled = true;
@@ -315,25 +494,33 @@
                     "Content-Type": "application/json",
                     "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                     "Accept": "application/json"
-                }
+                },
+                body: JSON.stringify(autoRefresh ? { auto_refresh: true } : {})
             });
 
             const result = await response.json();
             if (response.ok && result.status === 'success') {
                 currentToken = result.qr_token;
-                remainingSeconds = result.remaining_seconds || 1200;
+                remainingSeconds = result.remaining_seconds;
                 document.getElementById('tokenPreview').innerText = currentToken;
                 initQrCode(currentToken);
                 startCountdown();
-                Swal.fire({
-                    icon: 'success',
-                    title: 'QR Code Diperbarui',
-                    text: 'Token baru aktif untuk 20 menit ke depan.',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 3000
-                });
+                if (showSuccess) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'QR Code Diperbarui',
+                        text: 'Token baru aktif untuk 20 menit ke depan.',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                }
+            } else if (autoRefresh && response.status === 410) {
+                remainingSeconds = 0;
+                updateTimerDisplay();
+                stopProjectionRefresh();
+                document.getElementById('projectionRefreshTimer').innerText = 'Sesi QR berakhir';
             } else {
                 Swal.fire('Error', result.message || 'Gagal memperbarui QR code.', 'error');
             }
@@ -548,38 +735,78 @@
             if (!response.ok) return;
             const res = await response.json();
             document.getElementById('badgeTotalHadir').innerText = res.total_hadir;
+            document.getElementById('badgeTotalTidakHadir').innerText = res.total_tidak_hadir;
 
             const tbody = document.getElementById('attendanceTableBody');
             if (res.presensi.length === 0) {
-                tbody.innerHTML = `
-                    <tr id="emptyRow">
-                        <td colspan="5" class="py-12 text-center text-slate-400 text-sm">
-                            <i class="fa-regular fa-clipboard text-3xl mb-2 text-slate-300 block"></i>
-                            Belum ada mahasiswa yang melakukan presensi pada pertemuan ini.
-                        </td>
-                    </tr>
-                `;
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 5;
+                cell.className = 'py-12 text-center text-sm text-slate-400';
+                cell.innerText = 'Belum ada mahasiswa yang melakukan presensi pada pertemuan ini.';
+                row.appendChild(cell);
+                tbody.replaceChildren(row);
             } else {
-                let html = '';
-                res.presensi.forEach((item, index) => {
-                    html += `
-                        <tr class="hover:bg-slate-50 transition">
-                            <td class="py-3 px-3 text-xs text-slate-400">${index + 1}</td>
-                            <td class="py-3 px-3">
-                                <div class="font-semibold text-slate-900">${item.nama}</div>
-                                <div class="text-xs text-slate-500 font-mono">${item.nomor_induk}</div>
-                            </td>
-                            <td class="py-3 px-3 text-xs font-mono text-slate-600">${item.waktu_presensi} WIB</td>
-                            <td class="py-3 px-3 text-xs"><span class="font-medium text-slate-700 font-mono">${item.jarak_meter}</span></td>
-                            <td class="py-3 px-3 text-center">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                                    <i class="fa-solid fa-check text-[10px] mr-1"></i> ${item.status}
-                                </span>
-                            </td>
-                        </tr>
-                    `;
+                const manualUrl = tbody.dataset.manualUrl;
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+                const rows = res.presensi.map((item) => {
+                    const row = document.createElement('tr');
+                    row.className = 'transition hover:bg-blue-50/40';
+
+                    const numberCell = document.createElement('td');
+                    numberCell.className = 'px-4 py-3 text-center text-slate-500';
+                    numberCell.innerText = item.no;
+
+                    const nimCell = document.createElement('td');
+                    nimCell.className = 'px-4 py-3 font-mono text-xs text-slate-600';
+                    nimCell.innerText = item.nomor_induk;
+
+                    const nameCell = document.createElement('td');
+                    nameCell.className = 'px-4 py-3 font-semibold text-slate-900';
+                    nameCell.innerText = item.nama;
+
+                    const statusCell = document.createElement('td');
+                    statusCell.className = 'px-4 py-3 text-center';
+                    const badge = document.createElement('span');
+                    badge.className = item.status === 'Hadir'
+                        ? 'inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800'
+                        : 'inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800';
+                    badge.innerText = item.status;
+                    statusCell.appendChild(badge);
+
+                    const actionsCell = document.createElement('td');
+                    actionsCell.className = 'px-4 py-3';
+                    const actions = document.createElement('div');
+                    actions.className = 'flex justify-center gap-2';
+
+                    [
+                        { status: 'Hadir', label: 'Hadir', color: 'bg-emerald-600 hover:bg-emerald-700', icon: 'fa-check' },
+                        { status: 'Tidak Hadir', label: 'Tidak Hadir', color: 'bg-rose-600 hover:bg-rose-700', icon: 'fa-xmark' }
+                    ].forEach(({ status, label, color, icon }) => {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = manualUrl.replace('__PRESENSI_ID__', encodeURIComponent(item.id));
+                        const tokenInput = document.createElement('input');
+                        tokenInput.type = 'hidden';
+                        tokenInput.name = '_token';
+                        tokenInput.value = csrfToken;
+                        const button = document.createElement('button');
+                        button.type = 'submit';
+                        button.name = 'status';
+                        button.value = status;
+                        button.className = `inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white transition ${color}`;
+                        const buttonIcon = document.createElement('i');
+                        buttonIcon.className = `fa-solid ${icon}`;
+                        button.append(buttonIcon, document.createTextNode(label));
+                        form.append(tokenInput, button);
+                        actions.appendChild(form);
+                    });
+
+                    actionsCell.appendChild(actions);
+                    row.append(numberCell, nimCell, nameCell, statusCell, actionsCell);
+                    return row;
                 });
-                tbody.innerHTML = html;
+                tbody.replaceChildren(...rows);
             }
             const now = new Date();
             document.getElementById('lastUpdatedTime').innerText = `Terakhir diperbarui: ${now.toLocaleTimeString()}`;
@@ -606,6 +833,42 @@
         startCountdown();
         trackLecturerGeolocation();
         pollingInterval = setInterval(pollLiveAttendance, 4000);
+
+        const courseFilter = document.getElementById('courseFilter');
+        const classFilter = document.getElementById('classFilter');
+        const classOptions = Array.from(classFilter.options);
+
+        function filterClasses(navigateToSelectedClass) {
+            const availableOptions = classOptions.filter((option) => option.dataset.courseId === courseFilter.value);
+            const selectableOptions = availableOptions.filter((option) => !option.disabled);
+            classOptions.forEach((option) => {
+                option.hidden = option.dataset.courseId !== courseFilter.value;
+            });
+
+            if (!selectableOptions.some((option) => option.value === classFilter.value)) {
+                classFilter.value = selectableOptions[0]?.value ?? '';
+            }
+
+            if (navigateToSelectedClass) {
+                const selectedUrl = classFilter.selectedOptions[0]?.dataset.url;
+                if (selectedUrl) {
+                    window.location.assign(selectedUrl);
+                }
+            }
+        }
+
+        filterClasses(false);
+        courseFilter.addEventListener('change', () => filterClasses(true));
+        classFilter.addEventListener('change', () => filterClasses(true));
+
+        const projectionModal = document.getElementById('qrProjectionModal');
+        projectionModal.addEventListener('close', stopProjectionRefresh);
+        projectionModal.addEventListener('click', (event) => {
+            if (event.target === projectionModal) {
+                closeQrProjection();
+            }
+        });
     });
 </script>
 @endpush
+@endif

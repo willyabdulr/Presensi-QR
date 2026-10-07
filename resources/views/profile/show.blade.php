@@ -48,6 +48,12 @@
             <dt class="text-xs font-semibold uppercase text-slate-500">{{ $user->role === 'dosen' ? 'NID / NIP' : ($user->role === 'mahasiswa' ? 'NIM' : 'Nomor identitas') }}</dt>
             <dd class="mt-1.5 text-sm font-semibold text-slate-800">{{ $user->nomor_induk ?: '-' }}</dd>
         </div>
+        @if($user->role === 'mahasiswa')
+            <div>
+                <dt class="text-xs font-semibold uppercase text-slate-500">Kelas</dt>
+                <dd class="mt-1.5 text-sm font-semibold text-slate-800">{{ $user->kelas?->kode_kelas ?? 'Belum ditetapkan' }}</dd>
+            </div>
+        @endif
         <div>
             <dt class="text-xs font-semibold uppercase text-slate-500">Status akun</dt>
             <dd class="mt-1.5 text-sm font-semibold {{ $user->is_approved ? 'text-emerald-700' : 'text-amber-700' }}">

@@ -11,11 +11,15 @@ class JadwalKuliah extends Model
 {
     use HasFactory;
 
+    public const MAX_RADIUS_METERS = 5;
+
     protected $table = 'jadwal_kuliah';
 
     protected $fillable = [
         'dosen_id',
         'mata_kuliah_id',
+        'kelas_id',
+        'kelas',
         'hari',
         'jam_mulai',
         'jam_selesai',
@@ -38,6 +42,11 @@ class JadwalKuliah extends Model
     public function mataKuliah(): BelongsTo
     {
         return $this->belongsTo(MataKuliah::class, 'mata_kuliah_id');
+    }
+
+    public function kelasData(): BelongsTo
+    {
+        return $this->belongsTo(Kelas::class, 'kelas_id');
     }
 
     public function pertemuan(): HasMany

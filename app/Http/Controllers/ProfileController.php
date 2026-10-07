@@ -16,6 +16,10 @@ class ProfileController extends Controller
     {
         $user = $this->profileUser($request);
 
+        if ($user->role === 'mahasiswa') {
+            $user->loadMissing('kelas');
+        }
+
         return view('profile.show', compact('user'));
     }
 

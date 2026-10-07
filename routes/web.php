@@ -31,6 +31,7 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::get('/login/{role}', [AuthController::class, 'showLoginForm'])
     ->where('role', 'admin|dosen|mahasiswa')
     ->name('login.role');
+Route::post('/login', [AuthController::class, 'login'])->name('login.authenticate');
 Route::post('/login/{role}', [AuthController::class, 'login'])
     ->where('role', 'admin|dosen|mahasiswa')
     ->name('login.post');
@@ -48,11 +49,23 @@ Route::post('/register/{role}', [RegistrationController::class, 'store'])
 Route::middleware(['cache.headers:no_store;private;no_cache;must_revalidate;max_age=0', 'auth:admin', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
+    Route::get('/users/export-csv', [UserManagementController::class, 'exportStudents'])->name('users.export-csv');
     Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');
+    Route::patch('/users/{user}', [UserManagementController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])->name('users.destroy');
     Route::patch('/users/{user}/approve', [UserManagementController::class, 'approve'])->name('users.approve');
+    Route::patch('/users/{user}/kelas', [UserManagementController::class, 'updateClass'])->name('users.update-class');
     Route::get('/mata-kuliah', [AdminDashboardController::class, 'courses'])->name('courses');
     Route::post('/mata-kuliah', [AcademicManagementController::class, 'storeCourse'])->name('courses.store');
+    Route::post('/kelas', [AcademicManagementController::class, 'storeClass'])->name('classes.store');
+    Route::patch('/kelas/{kelas}', [AcademicManagementController::class, 'updateClass'])->name('classes.update');
     Route::post('/jadwal-kuliah', [AcademicManagementController::class, 'storeSchedule'])->name('schedules.store');
+    Route::patch('/jadwal-kuliah/{jadwalKuliah}/kelas', [AcademicManagementController::class, 'updateScheduleClass'])->name('schedules.update-class');
+    Route::patch('/jadwal-kuliah/{jadwalKuliah}/jam', [AcademicManagementController::class, 'updateScheduleTime'])->name('schedules.update-time');
+    Route::patch('/jadwal-kuliah/{jadwalKuliah}/dosen', [AcademicManagementController::class, 'updateScheduleLecturer'])->name('schedules.update-lecturer');
+    Route::post('/pertemuan', [AcademicManagementController::class, 'storeMeeting'])->name('meetings.store');
+    Route::patch('/pertemuan/{pertemuan}', [AcademicManagementController::class, 'updateMeeting'])->name('meetings.update');
+    Route::patch('/pertemuan/{pertemuan}/dosen-pengganti', [AcademicManagementController::class, 'updateSubstituteLecturer'])->name('meetings.update-substitute');
     Route::get('/rekap-presensi', [AdminDashboardController::class, 'attendance'])->name('attendance');
     Route::get('/profil/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profil', [ProfileController::class, 'update'])->name('profile.update');
@@ -64,7 +77,10 @@ Route::middleware(['cache.headers:no_store;private;no_cache;must_revalidate;max_
     Route::get('/rekap-absensi', [DosenPertemuanController::class, 'rekapAbsensi'])->name('attendance');
     Route::post('/jadwal/{jadwalKuliah}/pertemuan', [DosenPertemuanController::class, 'storePertemuan'])->name('pertemuan.store');
     Route::get('/pertemuan/{pertemuan}/qr', [DosenPertemuanController::class, 'showQr'])->name('pertemuan.qr');
+    Route::post('/pertemuan/{pertemuan}/mulai', [DosenPertemuanController::class, 'startMeeting'])->name('pertemuan.start');
+    Route::post('/pertemuan/{pertemuan}/akhiri', [DosenPertemuanController::class, 'endMeeting'])->name('pertemuan.end');
     Route::post('/pertemuan/{pertemuan}/regenerate-qr', [DosenPertemuanController::class, 'regenerateQr'])->name('pertemuan.regenerate_qr');
+    Route::post('/pertemuan/{pertemuan}/presensi/{presensi}/manual', [DosenPertemuanController::class, 'setManualAttendance'])->name('pertemuan.manual_attendance');
     Route::get('/pertemuan/{pertemuan}/live-attendance', [DosenPertemuanController::class, 'liveAttendance'])->name('pertemuan.live_attendance');
     Route::get('/jadwal/{jadwalKuliah}/export-rekap', [DosenPertemuanController::class, 'exportRekap'])->name('jadwal.export_rekap');
     Route::post('/jadwal/{jadwalKuliah}/update-lokasi', [DosenPertemuanController::class, 'updateLokasi'])->name('jadwal.update_lokasi');

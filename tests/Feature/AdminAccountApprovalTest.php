@@ -2,6 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\JadwalKuliah;
+use App\Models\MataKuliah;
+use App\Models\Pertemuan;
+use App\Models\Presensi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -135,6 +139,82 @@ class AdminAccountApprovalTest extends TestCase
         }
     }
 
+    public function test_admin_dashboard_lists_administrative_changes_without_attendance_events(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->post(route('register.store', 'mahasiswa'), [
+            'name' => 'Mahasiswa Audit',
+            'email' => 'audit-student@kampus.test',
+            'nomor_induk' => '220109101',
+            'password' => 'password-123',
+            'password_confirmation' => 'password-123',
+        ])->assertRedirect(route('login.role', 'mahasiswa'));
+        $this->post(route('register.store', 'dosen'), [
+            'name' => 'Dosen Audit',
+            'email' => 'audit-lecturer@kampus.test',
+            'nomor_induk' => '198509101',
+            'password' => 'password-123',
+            'password_confirmation' => 'password-123',
+        ])->assertRedirect(route('login.role', 'dosen'));
+
+        $student = User::query()->where('nomor_induk', '220109101')->firstOrFail();
+        $lecturer = User::query()->where('nomor_induk', '198509101')->firstOrFail();
+        $replacementMain = User::factory()->create(['role' => 'dosen']);
+        $replacementMain->forceFill(['is_approved' => true])->save();
+        $course = MataKuliah::create(['kode_mk' => 'IF9901', 'nama_mk' => 'Mata Kuliah Audit']);
+        $this->actingAs($admin, 'admin');
+        $this->patch(route('admin.users.approve', $student))->assertRedirect();
+        $this->patch(route('admin.users.approve', $lecturer))->assertRedirect();
+        $this->post(route('admin.courses.store'), [
+            'kode_mk' => 'IF9902',
+            'nama_mk' => 'Administrasi Akademik',
+        ])->assertRedirect(route('admin.courses'));
+        $this->post(route('admin.classes.store'), ['kode_kelas' => 'AUDIT-01'])
+            ->assertRedirect(route('admin.courses'));
+
+        $schedule = JadwalKuliah::create([
+            'dosen_id' => $lecturer->id,
+            'mata_kuliah_id' => $course->id,
+            'kelas' => 'AUDIT-01',
+            'hari' => 'Senin',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '10:00',
+            'latitude_kelas' => -6.2,
+            'longitude_kelas' => 106.8,
+            'radius_meter' => 5,
+        ]);
+        $meeting = Pertemuan::create([
+            'jadwal_kuliah_id' => $schedule->id,
+            'pertemuan_ke' => 1,
+            'topik' => 'Sesi Presensi Audit',
+            'tanggal_pertemuan' => '2026-10-07',
+            'status_pertemuan' => 'Berlangsung',
+            'qr_token' => Str::random(40),
+            'qr_expires_at' => now()->addMinutes(20),
+            'is_active' => true,
+        ]);
+        Presensi::create([
+            'pertemuan_id' => $meeting->id,
+            'mahasiswa_id' => $student->id,
+            'status' => 'Hadir',
+        ]);
+        $this->patch(route('admin.schedules.update-lecturer', $schedule), ['dosen_id' => $replacementMain->id])
+            ->assertRedirect(route('admin.courses'));
+
+        $this->assertDatabaseCount('admin_activities', 7);
+        $this->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSeeText('Aktivitas Terbaru')
+            ->assertSeeText('Mahasiswa ditambahkan: Mahasiswa Audit')
+            ->assertSeeText('Dosen ditambahkan: Dosen Audit')
+            ->assertSeeText('Akun Mahasiswa disetujui')
+            ->assertSeeText('Akun Dosen disetujui')
+            ->assertSeeText('Mata kuliah ditambahkan: Administrasi Akademik')
+            ->assertSeeText('Kelas ditambahkan: AUDIT-01')
+            ->assertSeeText('Dosen pengampu Mata Kuliah Audit')
+            ->assertDontSeeText('Sesi Presensi Audit');
+    }
+
     public function test_non_admin_cannot_access_admin_dashboard(): void
     {
         $mahasiswa = User::factory()->create([
@@ -205,7 +285,7 @@ class AdminAccountApprovalTest extends TestCase
             ->assertOk()
             ->assertSee('Dashboard Mahasiswa');
 
-        $this->get(route('mahasiswa.scan'))->assertOk()->assertSee('Scan Absensi');
+        $this->get(route('mahasiswa.scan'))->assertOk()->assertSee('Scan Presensi');
         $this->get(route('mahasiswa.riwayat'))->assertOk()->assertSee('Riwayat Presensi');
         $this->get(route('mahasiswa.profile'))->assertOk()->assertSee($mahasiswa->email);
     }

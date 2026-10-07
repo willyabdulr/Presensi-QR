@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Kelas;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -11,6 +12,22 @@ use Tests\TestCase;
 class ProfilePhotoTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_student_profile_displays_assigned_class(): void
+    {
+        $kelas = Kelas::factory()->create(['kode_kelas' => '04SIFE002']);
+        $student = User::factory()->create([
+            'role' => 'mahasiswa',
+            'kelas_id' => $kelas->id,
+            'nomor_induk' => '220101103',
+        ]);
+
+        $this->actingAs($student, 'mahasiswa')
+            ->get(route('mahasiswa.profile'))
+            ->assertOk()
+            ->assertSee('Kelas')
+            ->assertSee('04SIFE002');
+    }
 
     public function test_each_role_can_update_profile_details_and_store_a_photo(): void
     {

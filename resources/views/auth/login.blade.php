@@ -1,52 +1,44 @@
 @extends('layouts.app')
 
 @php
-    $activeRole = $role ?? 'mahasiswa';
+    $activeRole = $role;
     $roleColors = [
         'mahasiswa' => 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-200',
         'dosen' => 'bg-violet-600 hover:bg-violet-700 focus:ring-violet-200',
         'admin' => 'bg-teal-700 hover:bg-teal-800 focus:ring-teal-200',
     ];
-    $identityField = $activeRole === 'admin' ? 'email' : 'nomor_induk';
+    $identityField = $activeRole === null ? 'identifier' : ($activeRole === 'admin' ? 'email' : 'nomor_induk');
     $identityLabel = match ($activeRole) {
         'dosen' => 'NID / NIP',
         'mahasiswa' => 'NIM',
-        default => 'Email Admin',
+        'admin' => 'Email Admin',
+        default => 'Email / NIM / NID / NIP',
     };
     $identityPlaceholder = match ($activeRole) {
         'dosen' => 'Masukkan NID atau NIP',
         'mahasiswa' => 'Masukkan NIM',
-        default => 'admin@kampus.ac.id',
+        'admin' => 'admin@kampus.ac.id',
+        default => 'Masukkan email, NIM, atau NID/NIP',
     };
 @endphp
 
-@section('title', 'Masuk '.ucfirst($activeRole))
+@section('title', $activeRole ? 'Masuk '.ucfirst($activeRole) : 'Masuk')
 
 @section('content')
-<section class="mx-auto my-4 w-full max-w-md rounded-md border border-blue-100 bg-white p-6 shadow-sm sm:my-8 sm:p-8">
+<section class="mx-auto my-5 w-full max-w-md rounded-md border border-blue-100 bg-white p-6 shadow-sm sm:my-8 sm:p-8">
     <div class="mb-6 text-center">
         <span class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-md bg-[#17385f] text-2xl text-white">
             <i class="fa-solid fa-graduation-cap"></i>
         </span>
         <h1 class="text-2xl font-extrabold text-[#17385f]">EduAttend</h1>
-        <p class="mt-1 text-sm text-slate-500">Sistem Absensi Perkuliahan</p>
-    </div>
-
-    <div class="mb-6 grid grid-cols-3 gap-1 rounded-md bg-slate-100 p-1" aria-label="Pilih role">
-        @foreach(['mahasiswa' => 'Mahasiswa', 'dosen' => 'Dosen', 'admin' => 'Admin'] as $value => $label)
-            <a href="{{ route('login.role', $value) }}" @class([
-                'flex min-h-10 items-center justify-center gap-1.5 rounded px-2 text-xs font-semibold sm:text-sm',
-                'bg-white text-[#17385f] shadow-sm' => $activeRole === $value,
-                'text-slate-500 hover:text-slate-800' => $activeRole !== $value,
-            ]) @if($activeRole === $value) aria-current="page" @endif>
-                {{ $label }}
-            </a>
-        @endforeach
+        <p class="mt-1 text-sm text-slate-500">Sistem Presensi Perkuliahan</p>
     </div>
 
     <div class="mb-5">
-        <h2 class="text-lg font-bold text-slate-900">Masuk {{ ucfirst($activeRole) }}</h2>
-        <p class="mt-1 text-xs text-slate-500">Masuk dengan {{ $identityLabel }} yang terdaftar.</p>
+        <h2 class="text-lg font-bold text-slate-900">{{ $activeRole ? 'Masuk '.ucfirst($activeRole) : 'Masuk ke akun Anda' }}</h2>
+        <p class="mt-1 text-xs text-slate-500">
+            {{ $activeRole ? 'Masuk dengan '.$identityLabel.' yang terdaftar.' : 'Gunakan email, NIM, atau NID/NIP yang terdaftar.' }}
+        </p>
     </div>
 
     @if($errors->any())
@@ -55,7 +47,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('login.post', $activeRole) }}" class="space-y-4">
+    <form method="POST" action="{{ $activeRole ? route('login.post', $activeRole) : route('login.authenticate') }}" class="space-y-4">
         @csrf
         <div>
             <label for="{{ $identityField }}" class="mb-1.5 block text-xs font-semibold text-slate-700">{{ $identityLabel }}</label>
@@ -76,7 +68,7 @@
             Ingat saya
         </label>
 
-        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-bold text-white focus:outline-none focus:ring-4 {{ $roleColors[$activeRole] }}">
+        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-bold text-white focus:outline-none focus:ring-4 {{ $roleColors[$activeRole ?? 'mahasiswa'] }}">
             <i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk
         </button>
     </form>
@@ -86,7 +78,7 @@
     @else
         <p class="mt-5 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">
             Belum punya akun?
-            <a href="{{ route('register.role', $activeRole) }}" class="font-semibold text-blue-700 hover:text-blue-900">Daftar {{ $activeRole }}</a>
+            <a href="{{ route('register') }}" class="font-semibold text-blue-700 hover:text-blue-900">Daftar</a>
         </p>
     @endif
 </section>

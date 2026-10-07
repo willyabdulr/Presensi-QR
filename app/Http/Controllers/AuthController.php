@@ -26,19 +26,45 @@ class AuthController extends Controller
         return view('auth.login', compact('role'));
     }
 
-    public function login(Request $request, string $role): RedirectResponse
+    public function login(Request $request, ?string $role = null): RedirectResponse
     {
-        abort_unless(in_array($role, self::ROLES, true), 404);
+        abort_unless($role === null || in_array($role, self::ROLES, true), 404);
 
-        $identityField = $role === 'admin' ? 'email' : 'nomor_induk';
-        $credentials = $request->validate([
-            $identityField => $identityField === 'email' ? 'required|email' : 'required|string|max:32',
-            'password' => 'required|string',
-        ]);
-        $credentials['role'] = $role;
-        $credentials['is_approved'] = true;
+        if ($role === null) {
+            $credentials = $request->validate([
+                'identifier' => ['required', 'string', 'max:255'],
+                'password' => ['required', 'string'],
+            ]);
+            $inputField = 'identifier';
+            $identity = $credentials[$inputField];
+            $identityField = str_contains($identity, '@') ? 'email' : 'nomor_induk';
+            $user = User::query()->where($identityField, $identity)->first();
+            $role = $user?->role;
 
-        if (Auth::guard($role)->attempt($credentials, $request->boolean('remember'))) {
+            if (! in_array($role, self::ROLES, true)) {
+                return back()->withErrors([
+                    $inputField => 'Email, NIM, NID/NIP atau password yang Anda masukkan salah.',
+                ])->onlyInput($inputField);
+            }
+        } else {
+            $identityField = $role === 'admin' ? 'email' : 'nomor_induk';
+            $credentials = $request->validate([
+                $identityField => $identityField === 'email' ? 'required|email' : 'required|string|max:32',
+                'password' => 'required|string',
+            ]);
+            $inputField = $identityField;
+            $identity = $credentials[$identityField];
+            $user = null;
+        }
+
+        $authCredentials = [
+            $identityField => $identity,
+            'password' => $credentials['password'],
+            'role' => $role,
+            'is_approved' => true,
+        ];
+
+        if (Auth::guard($role)->attempt($authCredentials, $request->boolean('remember'))) {
             foreach (['web', ...self::ROLES] as $guard) {
                 if ($guard !== $role) {
                     Auth::guard($guard)->logout();
@@ -49,25 +75,25 @@ class AuthController extends Controller
             return redirect()->intended(route($this->dashboardRoute($role)));
         }
 
-        $pendingUser = User::query()
-            ->where($identityField, $credentials[$identityField])
+        $pendingUser = $user ?? User::query()
+            ->where($identityField, $identity)
             ->where('role', $role)
             ->where('is_approved', false)
             ->first();
 
-        if ($pendingUser && Hash::check($credentials['password'], $pendingUser->password)) {
+        if ($pendingUser && ! $pendingUser->is_approved && Hash::check($credentials['password'], $pendingUser->password)) {
             return back()->withErrors([
-                $identityField => 'Akun '.ucfirst($role).' Anda masih menunggu persetujuan admin.',
-            ])->onlyInput($identityField);
+                $inputField => 'Akun '.ucfirst($role).' Anda masih menunggu persetujuan admin.',
+            ])->onlyInput($inputField);
         }
 
         return back()->withErrors([
-            $identityField => match ($role) {
+            $inputField => match ($role) {
                 'dosen' => 'NID/NIP atau password yang Anda masukkan salah.',
                 'mahasiswa' => 'NIM atau password yang Anda masukkan salah.',
-                default => 'Email atau password yang Anda masukkan salah.',
+                default => 'Email, NIM, NID/NIP atau password yang Anda masukkan salah.',
             },
-        ])->onlyInput($identityField);
+        ])->onlyInput($inputField);
     }
 
     public function logout(Request $request): RedirectResponse

@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\JadwalKuliah;
 use App\Models\Pertemuan;
 use App\Models\Presensi;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -49,15 +53,61 @@ class PresensiController extends Controller
         return view('mahasiswa.dashboard', compact('stats', 'recentPresensi'));
     }
 
-    public function riwayat()
+    public function riwayat(): View
     {
-        $mahasiswaId = auth()->id();
-        $riwayatPresensi = Presensi::with(['pertemuan.jadwalKuliah.mataKuliah', 'pertemuan.jadwalKuliah.dosen'])
-            ->where('mahasiswa_id', $mahasiswaId)
-            ->orderBy('waktu_presensi', 'desc')
-            ->paginate(15);
+        $mahasiswa = auth('mahasiswa')->user();
+        $kelasKode = $mahasiswa->kelas?->kode_kelas;
 
-        return view('mahasiswa.riwayat', compact('riwayatPresensi'));
+        $pertemuan = Pertemuan::query()
+            ->with([
+                'jadwalKuliah.mataKuliah',
+                'jadwalKuliah.kelasData',
+                'presensi' => fn (Relation $query) => $query->where('mahasiswa_id', $mahasiswa->id),
+            ])
+            ->whereHas('jadwalKuliah', function (Builder $query) use ($mahasiswa, $kelasKode): void {
+                $query->where(function (Builder $classQuery) use ($mahasiswa, $kelasKode): void {
+                    $classQuery->where('kelas_id', $mahasiswa->kelas_id ?? 0);
+
+                    if ($kelasKode !== null) {
+                        $classQuery->orWhere('kelas', $kelasKode);
+                    }
+                });
+            })
+            ->orderBy('pertemuan_ke')
+            ->get();
+
+        $riwayatPertemuan = $pertemuan->map(function (Pertemuan $meeting): array {
+            $presensi = $meeting->presensi->first();
+            $status = $presensi?->status === 'Hadir'
+                ? 'Hadir'
+                : ($meeting->status_pertemuan === 'Selesai' ? 'Tidak Hadir' : 'Menunggu');
+
+            return [
+                'pertemuan' => $meeting,
+                'status' => $status,
+            ];
+        });
+
+        $ringkasanPresensi = collect(['Hadir', 'Tidak Hadir', 'Menunggu'])
+            ->mapWithKeys(fn (string $status): array => [
+                $status => $riwayatPertemuan->where('status', $status)->count(),
+            ])
+            ->all();
+
+        $riwayatPerkuliahan = $riwayatPertemuan
+            ->groupBy(fn (array $item): int => $item['pertemuan']->jadwalKuliah->mata_kuliah_id)
+            ->sortBy(fn (Collection $meetings): string => $meetings->first()['pertemuan']->jadwalKuliah->mataKuliah->nama_mk)
+            ->map(function (Collection $meetings): array {
+                $jadwal = $meetings->first()['pertemuan']->jadwalKuliah;
+
+                return [
+                    'mata_kuliah' => $jadwal->mataKuliah,
+                    'kode_kelas' => $jadwal->kelasData?->kode_kelas ?? $jadwal->kelas ?? '-',
+                    'pertemuan' => $meetings,
+                ];
+            });
+
+        return view('mahasiswa.riwayat', compact('riwayatPerkuliahan', 'ringkasanPresensi'));
     }
 
     public function store(Request $request): JsonResponse
@@ -81,6 +131,13 @@ class PresensiController extends Controller
             ], 404);
         }
 
+        if ($pertemuan->status_pertemuan !== 'Berlangsung') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Presensi hanya dapat dilakukan saat pertemuan sedang berlangsung.',
+            ], 409);
+        }
+
         if (! $pertemuan->is_active) {
             return response()->json([
                 'status' => 'error',
@@ -95,19 +152,28 @@ class PresensiController extends Controller
             ], 410);
         }
 
+        $mahasiswa = auth()->user();
+        $jadwal = $pertemuan->jadwalKuliah;
+
+        if ($jadwal->kelas_id && $mahasiswa->kelas_id !== $jadwal->kelas_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak terdaftar pada kelas untuk pertemuan ini.',
+            ], 403);
+        }
+
         $existingPresensi = Presensi::where('pertemuan_id', $pertemuan->id)
             ->where('mahasiswa_id', $mahasiswaId)
             ->first();
 
-        if ($existingPresensi) {
+        if ($existingPresensi?->status === 'Hadir') {
             return response()->json([
                 'status' => 'warning',
                 'message' => 'Anda sudah melakukan presensi pada pertemuan ini pada '.
-                    $existingPresensi->waktu_presensi->format('H:i:s').' WIB.',
+                    ($existingPresensi->waktu_presensi?->format('H:i:s') ?? 'waktu yang tercatat').' WIB.',
             ], 409);
         }
 
-        $jadwal = $pertemuan->jadwalKuliah;
         $jarakMeter = $this->calculateHaversineDistance(
             (float) $request->latitude,
             (float) $request->longitude,
@@ -115,7 +181,7 @@ class PresensiController extends Controller
             (float) $jadwal->longitude_kelas
         );
 
-        $radiusMaksimal = (float) $jadwal->radius_meter;
+        $radiusMaksimal = min($jadwal->radius_meter, JadwalKuliah::MAX_RADIUS_METERS);
 
         if ($jarakMeter > $radiusMaksimal) {
             return response()->json([
@@ -128,15 +194,24 @@ class PresensiController extends Controller
             ], 422);
         }
 
-        $presensi = Presensi::create([
-            'pertemuan_id' => $pertemuan->id,
-            'mahasiswa_id' => $mahasiswaId,
+        $attendanceData = [
             'status' => 'Hadir',
             'waktu_presensi' => Carbon::now(),
             'latitude_mahasiswa' => $request->latitude,
             'longitude_mahasiswa' => $request->longitude,
             'jarak_meter' => round($jarakMeter, 2),
-        ]);
+        ];
+
+        if ($existingPresensi) {
+            $existingPresensi->update($attendanceData);
+            $presensi = $existingPresensi;
+        } else {
+            $presensi = Presensi::create([
+                'pertemuan_id' => $pertemuan->id,
+                'mahasiswa_id' => $mahasiswaId,
+                ...$attendanceData,
+            ]);
+        }
 
         return response()->json([
             'status' => 'success',

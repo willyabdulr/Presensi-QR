@@ -156,39 +156,20 @@ class DosenPertemuanController extends Controller
         ));
     }
 
-    // public function showQr(Pertemuan $pertemuan): View
-    // {
-    //     $this->authorizeDosen($pertemuan->jadwalKuliah, $pertemuan);
+    public function showQr(Pertemuan $pertemuan): View
+    {
+        $this->authorizeDosen($pertemuan->jadwalKuliah, $pertemuan);
 
-    //     abort_unless($pertemuan->status_pertemuan !== 'Terjadwal', 409, 'Mulai pertemuan terlebih dahulu untuk membuka presensi.');
+        abort_unless($pertemuan->status_pertemuan !== 'Terjadwal', 409, 'Mulai pertemuan terlebih dahulu untuk membuka presensi.');
 
-    //     if ($pertemuan->status_pertemuan === 'Berlangsung'
-    //         && (empty($pertemuan->qr_token) || empty($pertemuan->qr_expires_at) || $pertemuan->isExpired() || ! $pertemuan->is_active)) {
-    //         $pertemuan->update([
-    //             'qr_token' => Str::random(40),
-    //             'qr_expires_at' => Carbon::now()->addMinutes(20),
-    //             'is_active' => true,
-    //         ]);
-    //     }
-
-        public function showQr(Pertemuan $pertemuan): View|RedirectResponse
-{
-    $this->authorizeDosen($pertemuan->jadwalKuliah, $pertemuan);
-
-    // 1. CEK STATUS: Jika pertemuan masih 'Terjadwal', kembalikan ke halaman sebelumnya dengan pesan peringatan
-    if ($pertemuan->status_pertemuan === 'Terjadwal') {
-        return redirect()->back()->with('warning', 'Mulai pertemuan terlebih dahulu untuk membuka presensi.');
-    }
-
-    // 2. Generate QR Token jika pertemuan sedang Berlangsung
-    if ($pertemuan->status_pertemuan === 'Berlangsung'
-        && (empty($pertemuan->qr_token) || empty($pertemuan->qr_expires_at) || $pertemuan->isExpired() || ! $pertemuan->is_active)) {
-        $pertemuan->update([
-            'qr_token' => Str::random(40),
-            'qr_expires_at' => Carbon::now()->addMinutes(20),
-            'is_active' => true,
-        ]);
-    }
+        if ($pertemuan->status_pertemuan === 'Berlangsung'
+            && (empty($pertemuan->qr_token) || empty($pertemuan->qr_expires_at) || $pertemuan->isExpired() || ! $pertemuan->is_active)) {
+            $pertemuan->update([
+                'qr_token' => Str::random(40),
+                'qr_expires_at' => Carbon::now()->addMinutes(20),
+                'is_active' => true,
+            ]);
+        }
 
         if ($pertemuan->status_pertemuan === 'Berlangsung') {
             $this->ensureClassRosterAttendance($pertemuan);

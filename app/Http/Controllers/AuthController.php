@@ -30,18 +30,13 @@ class AuthController extends Controller
     {
         abort_unless($role === null || in_array($role, self::ROLES, true), 404);
 
-        // Ambil input secara fleksibel (identifier / email / nomor_induk)
-        $inputIdentifier = $request->input('identifier') ?? $request->input('email') ?? $request->input('nomor_induk');
-
         if ($role === null) {
-            if (! $inputIdentifier) {
-                return back()->withErrors([
-                    'identifier' => 'Email, NIM, NID/NIP wajib diisi.',
-                ])->onlyInput('identifier');
-            }
-
-            $inputField = $request->has('identifier') ? 'identifier' : ($request->has('email') ? 'email' : 'nomor_induk');
-            $identity = $inputIdentifier;
+            $credentials = $request->validate([
+                'identifier' => ['required', 'string', 'max:255'],
+                'password' => ['required', 'string'],
+            ]);
+            $inputField = 'identifier';
+            $identity = $credentials[$inputField];
             $identityField = str_contains($identity, '@') ? 'email' : 'nomor_induk';
             $user = User::query()->where($identityField, $identity)->first();
             $role = $user?->role;
@@ -51,10 +46,6 @@ class AuthController extends Controller
                     $inputField => 'Email, NIM, NID/NIP atau password yang Anda masukkan salah.',
                 ])->onlyInput($inputField);
             }
-
-            $credentials = [
-                'password' => $request->input('password'),
-            ];
         } else {
             $identityField = $role === 'admin' ? 'email' : 'nomor_induk';
             $credentials = $request->validate([
@@ -63,6 +54,7 @@ class AuthController extends Controller
             ]);
             $inputField = $identityField;
             $identity = $credentials[$identityField];
+            $user = null;
         }
 
         $authCredentials = [
@@ -83,13 +75,13 @@ class AuthController extends Controller
             return redirect()->intended(route($this->dashboardRoute($role)));
         }
 
-        $pendingUser = User::query()
+        $pendingUser = $user ?? User::query()
             ->where($identityField, $identity)
             ->where('role', $role)
             ->where('is_approved', false)
             ->first();
 
-        if ($pendingUser && Hash::check($credentials['password'], $pendingUser->password)) {
+        if ($pendingUser && ! $pendingUser->is_approved && Hash::check($credentials['password'], $pendingUser->password)) {
             return back()->withErrors([
                 $inputField => 'Akun '.ucfirst($role).' Anda masih menunggu persetujuan admin.',
             ])->onlyInput($inputField);

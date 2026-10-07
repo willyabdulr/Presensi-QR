@@ -71,26 +71,20 @@ class AuthController extends Controller
                 }
             }
             $request->session()->regenerate();
-
-        if (! $user || ! in_array($user->role, self::ROLES, true) || ! Hash::check($credentials['password'], $user->password)) {
-            return back()->withErrors([
-                $identityField => 'Email, NIM/NIDN, atau password yang Anda masukkan salah.',
-            ])->onlyInput('identity');
+            return redirect()->intended(route($this->dashboardRoute($role)));
         }
 
-        $pendingUser = $user ?? User::query()
+        $pendingUser = User::query()
             ->where($identityField, $identity)
             ->where('role', $role)
             ->where('is_approved', false)
             ->first();
 
-        if ($pendingUser && ! $pendingUser->is_approved && Hash::check($credentials['password'], $pendingUser->password)) {
+        if ($pendingUser && Hash::check($credentials['password'], $pendingUser->password)) {
             return back()->withErrors([
                 $inputField => 'Akun '.ucfirst($role).' Anda masih menunggu persetujuan admin.',
             ])->onlyInput($inputField);
         }
-        Auth::guard($user->role)->login($user, $request->boolean('remember'));
-        $request->session()->regenerate();
 
         return back()->withErrors([
             $inputField => match ($role) {
@@ -103,10 +97,6 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
-        // Auth::guard('web')->logout();
-        // Auth::guard('admin')->logout();
-        // Auth::guard('dosen')->logout();
-        // Auth::guard('mahasiswa')->logout();
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

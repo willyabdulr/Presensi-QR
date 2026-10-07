@@ -103,10 +103,11 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
-        Auth::guard('admin')->logout();
-        Auth::guard('dosen')->logout();
-        Auth::guard('mahasiswa')->logout();
+        // Auth::guard('web')->logout();
+        // Auth::guard('admin')->logout();
+        // Auth::guard('dosen')->logout();
+        // Auth::guard('mahasiswa')->logout();
+        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

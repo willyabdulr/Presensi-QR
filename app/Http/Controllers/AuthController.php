@@ -30,48 +30,53 @@ class AuthController extends Controller
     {
         abort_unless($role === null || in_array($role, self::ROLES, true), 404);
 
-        // Ambil input secara fleksibel (identifier / email / nomor_induk)
-        $inputIdentifier = $request->input('identifier') ?? $request->input('email') ?? $request->input('nomor_induk');
+        // 1. Ambil nilai input pengenal apapun nama field-nya dari form Blade
+        $identity = $request->input('identifier') 
+            ?? $request->input('email') 
+            ?? $request->input('nomor_induk') 
+            ?? $request->input('login')
+            ?? $request->input('username');
 
+        // Tentukan nama field untuk menampilkan error di Blade
+        $inputField = $request->has('email') ? 'email' : ($request->has('nomor_induk') ? 'nomor_induk' : 'identifier');
+
+        if (!$identity) {
+            return back()->withErrors([
+                $inputField => 'Email, NIM, NID/NIP wajib diisi.',
+            ])->onlyInput($inputField);
+        }
+
+        $password = $request->input('password');
+        if (!$password) {
+            return back()->withErrors([
+                'password' => 'Password wajib diisi.',
+            ])->onlyInput($inputField);
+        }
+
+        // 2. Deteksi apakah input berupa email (@) atau nomor_induk
+        $identityField = str_contains($identity, '@') ? 'email' : 'nomor_induk';
+
+        // 3. Jika login umum (/login), cari user & role-nya otomatis dari DB
         if ($role === null) {
-            if (! $inputIdentifier) {
-                return back()->withErrors([
-                    'identifier' => 'Email, NIM, NID/NIP wajib diisi.',
-                ])->onlyInput('identifier');
-            }
-
-            $inputField = $request->has('identifier') ? 'identifier' : ($request->has('email') ? 'email' : 'nomor_induk');
-            $identity = $inputIdentifier;
-            $identityField = str_contains($identity, '@') ? 'email' : 'nomor_induk';
             $user = User::query()->where($identityField, $identity)->first();
             $role = $user?->role;
 
-            if (! in_array($role, self::ROLES, true)) {
+            if (!$role || !in_array($role, self::ROLES, true)) {
                 return back()->withErrors([
                     $inputField => 'Email, NIM, NID/NIP atau password yang Anda masukkan salah.',
                 ])->onlyInput($inputField);
             }
-
-            $credentials = [
-                'password' => $request->input('password'),
-            ];
-        } else {
-            $identityField = $role === 'admin' ? 'email' : 'nomor_induk';
-            $credentials = $request->validate([
-                $identityField => $identityField === 'email' ? 'required|email' : 'required|string|max:32',
-                'password' => 'required|string',
-            ]);
-            $inputField = $identityField;
-            $identity = $credentials[$identityField];
         }
 
+        // 4. Susun kredensial login
         $authCredentials = [
             $identityField => $identity,
-            'password' => $credentials['password'],
+            'password' => $password,
             'role' => $role,
             'is_approved' => true,
         ];
 
+        // 5. Eksekusi Attempt Auth
         if (Auth::guard($role)->attempt($authCredentials, $request->boolean('remember'))) {
             foreach (['web', ...self::ROLES] as $guard) {
                 if ($guard !== $role) {
@@ -83,18 +88,20 @@ class AuthController extends Controller
             return redirect()->intended(route($this->dashboardRoute($role)));
         }
 
+        // 6. Cek jika akun belum di-approve admin
         $pendingUser = User::query()
             ->where($identityField, $identity)
             ->where('role', $role)
             ->where('is_approved', false)
             ->first();
 
-        if ($pendingUser && Hash::check($credentials['password'], $pendingUser->password)) {
+        if ($pendingUser && Hash::check($password, $pendingUser->password)) {
             return back()->withErrors([
-                $inputField => 'Akun '.ucfirst($role).' Anda masih menunggu persetujuan admin.',
+                $inputField => 'Akun ' . ucfirst($role) . ' Anda masih menunggu persetujuan admin.',
             ])->onlyInput($inputField);
         }
 
+        // 7. Respon jika kredensial/password salah
         return back()->withErrors([
             $inputField => match ($role) {
                 'dosen' => 'NID/NIP atau password yang Anda masukkan salah.',

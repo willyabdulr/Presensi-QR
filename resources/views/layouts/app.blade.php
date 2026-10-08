@@ -163,6 +163,13 @@
                 </div>
             @endif
 
+                @if(session('warning'))
+        <div class="mb-4 flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ session('warning') }}</span>
+        </div>
+    @endif
+
             @if(session('error'))
                 <div class="mb-4 flex items-center gap-3 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
                     <i class="fa-solid fa-circle-exclamation"></i><span>{{ session('error') }}</span>
